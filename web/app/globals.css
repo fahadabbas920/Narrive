@@ -1,0 +1,222 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Playful motion for the mode-transition screen */
+@theme {
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite reverse;
+  --animate-bob: bob 2.4s ease-in-out infinite;
+  --animate-orbit: orbit 3.2s linear infinite;
+  --animate-dot: dot 1.1s ease-in-out infinite;
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translate(0, 0) rotate(0deg) scale(1);
+    }
+    33% {
+      transform: translate(24px, -30px) rotate(8deg) scale(1.05);
+    }
+    66% {
+      transform: translate(-18px, 18px) rotate(-6deg) scale(0.97);
+    }
+  }
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-3deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(3deg);
+    }
+  }
+  @keyframes orbit {
+    from {
+      transform: rotate(0deg) translateX(70px) rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg) translateX(70px) rotate(-360deg);
+    }
+  }
+  @keyframes dot {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+    40% {
+      transform: translateY(-8px);
+      opacity: 1;
+    }
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-serif: var(--font-lora);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Pastel palette — fill + readable "ink" pair for each hue */
+  --color-lavender: var(--lavender);
+  --color-lavender-ink: var(--lavender-ink);
+  --color-peach: var(--peach);
+  --color-peach-ink: var(--peach-ink);
+  --color-mint: var(--mint);
+  --color-mint-ink: var(--mint-ink);
+  --color-sky: var(--sky);
+  --color-sky-ink: var(--sky-ink);
+  --color-blush: var(--blush);
+  --color-blush-ink: var(--blush-ink);
+  --color-butter: var(--butter);
+  --color-butter-ink: var(--butter-ink);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.4);
+}
+
+/*
+ * "Pastel storybook" palette.
+ * Rule: pastel fills (lavender, peach, …) always take their dark *-ink text, never white.
+ * --primary is the one deeper lavender so it works as both link text and a solid button.
+ */
+:root {
+  --background: #fbf8f4;
+  --foreground: #2e2a3b;
+  --card: #ffffff;
+  --card-foreground: #2e2a3b;
+  --popover: #ffffff;
+  --popover-foreground: #2e2a3b;
+  --primary: #6a57b8;
+  --primary-foreground: #ffffff;
+  --secondary: #ece6fb;
+  --secondary-foreground: #3f3368;
+  --muted: #f3eff7;
+  --muted-foreground: #6b6580;
+  --accent: #ece6fb;
+  --accent-foreground: #3f3368;
+  --destructive: #c2415d;
+  --border: #e9e3ef;
+  --input: #e4ddeb;
+  --ring: #9c8be0;
+  --radius: 0.875rem;
+  --rf-dots: #dcd3e8;
+
+  --lavender: #e8e0fc;
+  --lavender-ink: #5a47a8;
+  --peach: #fde4d5;
+  --peach-ink: #9a4a22;
+  --mint: #d6f2e5;
+  --mint-ink: #246b4c;
+  --sky: #d9e9fb;
+  --sky-ink: #2a5f95;
+  --blush: #fbdce7;
+  --blush-ink: #a0355e;
+  --butter: #fcf0c6;
+  --butter-ink: #7a5c0c;
+}
+
+.dark {
+  --background: #1b1725;
+  --foreground: #ece8f5;
+  --card: #25202f;
+  --card-foreground: #ece8f5;
+  --popover: #25202f;
+  --popover-foreground: #ece8f5;
+  --primary: #c4b6f6;
+  --primary-foreground: #1f1934;
+  --secondary: #332c44;
+  --secondary-foreground: #ece8f5;
+  --muted: #2b2537;
+  --muted-foreground: #aaa2c0;
+  --accent: #332c44;
+  --accent-foreground: #ece8f5;
+  --destructive: #f08aa0;
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: #a898ea;
+  --rf-dots: oklch(1 0 0 / 14%);
+
+  --lavender: #342c50;
+  --lavender-ink: #d0c4f8;
+  --peach: #452f28;
+  --peach-ink: #f7c6ac;
+  --mint: #1f3a30;
+  --mint-ink: #a6e2c6;
+  --sky: #1e3044;
+  --sky-ink: #b2d3f4;
+  --blush: #432634;
+  --blush-ink: #f4b2c9;
+  --butter: #3e3520;
+  --butter-ink: #f0da92;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* React Flow theming (editor) */
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background-color: var(--card);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+}
+.react-flow__controls-button:hover {
+  background-color: var(--muted);
+}
+.react-flow__controls-button svg {
+  fill: var(--foreground);
+}
+.react-flow__minimap {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.react-flow__minimap-mask {
+  fill: var(--background) !important;
+  fill-opacity: 0.65;
+}
+.react-flow__attribution {
+  background: transparent;
+}
+.react-flow__attribution a {
+  color: var(--muted-foreground);
+}

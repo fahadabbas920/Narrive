@@ -8,7 +8,7 @@ import app.models.story  # noqa: F401
 import app.models.user  # noqa: F401
 from app.core.config import settings
 from app.core.database import engine
-from app.routers import auth, public, stories
+from app.routers import auth, public, stories, taxonomy, users
 
 
 def create_tables():
@@ -39,6 +39,8 @@ def on_startup():
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(stories.router, prefix=settings.API_V1_STR)
 app.include_router(public.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)
+app.include_router(taxonomy.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

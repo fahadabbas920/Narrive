@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.core.database import get_session
-from app.core.security import get_current_user_id
+from app.core.deps import get_current_writer_id
 from app.models.story import Choice, Scene, Story
 from app.schemas.story import (
     ChoiceCreate,
@@ -39,13 +39,23 @@ def _get_story_owned(story_id: UUID, user_id: str, db: Session) -> Story:
     return story
 
 
+def _check_choice_link(story_id: UUID, from_id: UUID, to_id: UUID, db: Session) -> None:
+    """Both ends of a choice must be scenes in this story, and a choice can't loop to itself."""
+    if from_id == to_id:
+        raise HTTPException(status_code=422, detail="A choice can't lead back to its own scene")
+    for scene_id in (from_id, to_id):
+        scene = db.get(Scene, scene_id)
+        if not scene or scene.story_id != story_id:
+            raise HTTPException(status_code=422, detail="Scene not found in this story")
+
+
 # ── Stories ─────────────────────────────────────────────────────────────────
 
 
 @router.get("", response_model=list[StoryRead])
 def list_stories(
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     stories = db.exec(select(Story).where(Story.author_id == UUID(user_id))).all()
     return [_story_read(s) for s in stories]
@@ -55,7 +65,7 @@ def list_stories(
 def create_story(
     data: StoryCreate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     story = Story(**data.model_dump(), author_id=UUID(user_id))
     db.add(story)
@@ -68,7 +78,7 @@ def create_story(
 def get_story(
     story_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     story = _get_story_owned(story_id, user_id, db)
     scenes = db.exec(select(Scene).where(Scene.story_id == story_id)).all()
@@ -86,7 +96,7 @@ def update_story(
     story_id: UUID,
     data: StoryUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     story = _get_story_owned(story_id, user_id, db)
     updates = data.model_dump(exclude_unset=True)
@@ -103,7 +113,7 @@ def update_story(
 def delete_story(
     story_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     story = _get_story_owned(story_id, user_id, db)
     db.delete(story)
@@ -118,7 +128,7 @@ def create_scene(
     story_id: UUID,
     data: SceneCreate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
     scene = Scene(**data.model_dump(), story_id=story_id)
@@ -134,7 +144,7 @@ def update_scene(
     scene_id: UUID,
     data: SceneUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
     scene = db.get(Scene, scene_id)
@@ -155,7 +165,7 @@ def delete_scene(
     story_id: UUID,
     scene_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
     scene = db.get(Scene, scene_id)
@@ -179,9 +189,10 @@ def create_choice(
     story_id: UUID,
     data: ChoiceCreate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
+    _check_choice_link(story_id, data.from_scene_id, data.to_scene_id, db)
     choice = Choice(**data.model_dump(), story_id=story_id)
     db.add(choice)
     db.commit()
@@ -195,13 +206,20 @@ def update_choice(
     choice_id: UUID,
     data: ChoiceUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
     choice = db.get(Choice, choice_id)
     if not choice or choice.story_id != story_id:
         raise HTTPException(status_code=404, detail="Choice not found")
-    updates = data.model_dump(exclude_unset=True)
+    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    if "from_scene_id" in updates or "to_scene_id" in updates:
+        _check_choice_link(
+            story_id,
+            updates.get("from_scene_id", choice.from_scene_id),
+            updates.get("to_scene_id", choice.to_scene_id),
+            db,
+        )
     for key, value in updates.items():
         setattr(choice, key, value)
     choice.updated_at = datetime.now(UTC)
@@ -216,7 +234,7 @@ def delete_choice(
     story_id: UUID,
     choice_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_writer_id),
 ):
     _get_story_owned(story_id, user_id, db)
     choice = db.get(Choice, choice_id)

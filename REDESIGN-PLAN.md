@@ -1,6 +1,11 @@
 # Narrive Redesign Plan: Account Modes, Single App, Pastel UI
 
-**Status:** Agreed 2026-09-28. Not yet built. The single-app merge (section 3) is proposed and waiting for confirmation.
+**Status:** Built 2026-09-28. The frontend was then also flattened from a Turborepo monorepo into one plain Next.js app at `web/`, and the shared UI package now lives in `web/components/ui`. [CLAUDE.md](CLAUDE.md) describes the current code; this file keeps the original reasoning.
+
+**Differences from the plan as built**
+- Final palette: cream background, `#6a57b8` primary. Chosen by contrast checks instead of a preview page, and easy to retune in `web/app/globals.css`.
+- The login card has no "Remember me" or "Forgot?" row, because neither feature exists yet. The password field has a show/hide toggle instead of a static key icon.
+- `/write` has no separate dashboard. It redirects to `/write/stories`, which shows a welcome banner after onboarding.
 
 ---
 
@@ -25,14 +30,14 @@ Each step can ship on its own.
 
 ---
 
-## 3. Single Next.js app (proposed)
+## 3. Single Next.js app
 
 **Why:** one origin means one session and one login page. Switching modes becomes a normal page navigation, with no token handoff between apps.
 
 **Mode comes from the URL:** `/write/*` is writer mode, everything else is reader mode.
 
 ```
-web/apps/web/app/
+web/app/
 ├── (auth)/login, register     one auth screen with Reader | Writer toggle
 ├── (reader)/                  public: /, /story/[id]   gated: /story/[id]/read
 ├── (writer)/write/            /write (dashboard), /write/stories, /write/stories/new,
@@ -47,8 +52,9 @@ web/apps/web/app/
 4. Keep one copy each of `hooks/use-auth.ts` (with the reader's safe `next` redirect), `providers.tsx`, and `proxy.ts`.
 5. Load React Flow and its CSS only in the `(writer)` layout, so reader pages stay light.
 6. Delete `apps/reader`, remove `:3001` from `BACKEND_CORS_ORIGINS`, and update `CLAUDE.md`.
+7. (Added later) Flatten `web/`: drop Turborepo, the pnpm workspace and `@workspace/ui`, and move primitives into `components/ui`.
 
-`packages/ui` stays as it is (shared theme + primitives).
+Shared primitives live in `components/ui/`; the theme lives in `app/globals.css`.
 
 **Route protection (`proxy.ts`)**
 - `/story/:id/read`: needs a token. Without one, redirect to `/login?next=…`.
@@ -134,18 +140,18 @@ Based on a reference screenshot of a split "practitioner vs organisation" portal
 
 ## 8. Pastel theme
 
-Tokens live in `web/packages/ui/src/styles/globals.css` and replace "Jade pebble". Changing them updates the whole app.
+Tokens live in `web/app/globals.css` and replace "Jade pebble". Changing them updates the whole app.
 
 - **Light:** cream background, soft lavender primary, with peach, mint, sky and blush accents.
 - **Dark:** deep plum background with pastel highlights.
 - **Editor:** start scene = mint, ending scene = blush.
 - **Accessibility rule:** pastel fills take **dark** text, never white. Text, links and focus rings use deeper shades of the same colours so they pass WCAG AA.
-- **Next step:** a preview page with 2–3 palette options shown on real components (buttons, cards, scene node, login card). The final tokens are picked from it.
+- **Pairs:** each hue has a fill and an `*-ink` text colour (`bg-mint text-mint-ink`). Every pair passes WCAG AA in light and dark.
 
 ---
 
-## 9. Open questions
+## 9. Follow-ups
 
-- Confirm the single-app merge.
-- Confirm the writer profile fields (pen name, bio, genres).
-- Choose the final pastel palette from the preview.
+- Password reset and "Remember me" on the login card.
+- A public author page built from `pen_name`, `bio` and `genres`.
+- Reader insights (currently marked "Soon" in onboarding).

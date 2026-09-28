@@ -1,10 +1,11 @@
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
-from alembic import context
 from sqlmodel import SQLModel
 
-import app.models.user  # noqa: F401
 import app.models.story  # noqa: F401
+import app.models.user  # noqa: F401
+from alembic import context
 from app.core.config import settings
 
 config = context.config

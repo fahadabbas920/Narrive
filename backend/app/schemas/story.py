@@ -3,10 +3,35 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from app.core.taxonomy import clean_content_rating, clean_genres, clean_moods, clean_tags
 from app.models.story import SceneType, StoryStatus
 
 
-class StoryCreate(BaseModel):
+class _TaxonomyValidated(BaseModel):
+    """Only values exposed by GET /taxonomy can be stored."""
+
+    @field_validator("genres", check_fields=False)
+    @classmethod
+    def _genres(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else clean_genres(v)
+
+    @field_validator("moods", check_fields=False)
+    @classmethod
+    def _moods(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else clean_moods(v)
+
+    @field_validator("content_rating", check_fields=False)
+    @classmethod
+    def _rating(cls, v: str | None) -> str | None:
+        return clean_content_rating(v)
+
+    @field_validator("tags", check_fields=False)
+    @classmethod
+    def _tags(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else clean_tags(v)
+
+
+class StoryCreate(_TaxonomyValidated):
     title: str
     description: str = ""
     genres: list[str] = []
@@ -15,7 +40,7 @@ class StoryCreate(BaseModel):
     tags: list[str] = []
 
 
-class StoryUpdate(BaseModel):
+class StoryUpdate(_TaxonomyValidated):
     title: str | None = None
     description: str | None = None
     genres: list[str] | None = None
@@ -102,3 +127,17 @@ class ChoiceRead(BaseModel):
 class StoryDetail(StoryRead):
     scenes: list[SceneRead] = []
     choices: list[ChoiceRead] = []
+
+
+class PublicAuthor(BaseModel):
+    author_name: str | None = None
+    author_handle: str | None = None
+    author_tone: str | None = None
+
+
+class PublicStoryRead(StoryRead, PublicAuthor):
+    pass
+
+
+class PublicStoryDetail(StoryDetail, PublicAuthor):
+    pass

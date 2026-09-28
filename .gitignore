@@ -9,8 +9,9 @@ out/
 build/
 next-env.d.ts
 
-# Turborepo
+# Tooling caches
 .turbo/
+.ruff_cache/
 
 # Production
 dist/

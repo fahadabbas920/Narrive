@@ -4,17 +4,14 @@ A text-based interactive storytelling platform where writers create branching na
 
 ## Overview
 
+One account works in two modes. Everyone can **read**. **Writing** is unlocked through a short "Become a writer" onboarding, and a Reading | Writing switch in the header moves between the two.
+
 Stories are structured as decision trees. At key moments, readers select from multiple options leading to different scenes, storylines, and endings. The experience is entirely text-based — no graphics, no game mechanics, just writing.
 
 ```
 storybook/
-├── web/                          Turborepo + pnpm monorepo
-│   ├── apps/writer/              Next.js 16 — writer dashboard + story editor  (port 3000)
-│   ├── apps/reader/              Next.js 16 — public reader experience         (port 3001)
-│   └── packages/
-│       ├── ui/                   shared shadcn primitives + Tailwind theme/globals
-│       └── typescript-config/    shared tsconfig bases
-└── backend/                      FastAPI — REST API + PostgreSQL               (port 8000)
+├── web/        Next.js 16 — one app with Reader and Writer modes   (port 3000)
+└── backend/    FastAPI — REST API + PostgreSQL                     (port 8000)
 ```
 
 ## Prerequisites
@@ -42,29 +39,28 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
 Tables are created automatically on first startup. API docs at `http://localhost:8000/docs`.
 
-### 3. Web apps (writer + reader)
+### 3. Web app
 
 ```bash
 cd web
 pnpm install
-pnpm dev          # turbo runs BOTH: writer on :3000, reader on :3001
+pnpm dev          # http://localhost:3000 (reader) and /write (writer)
 ```
-
-Run just one app: `pnpm --filter writer dev` or `pnpm --filter reader dev`.
 
 ## Development
 
 ### Frontend (run from `web/`)
 
 ```bash
-pnpm dev          # all apps (turbo)
-pnpm build        # build all apps
-pnpm typecheck    # tsc across the workspace
+pnpm dev          # dev server
+pnpm build        # production build
+pnpm typecheck    # tsc
 pnpm lint         # ESLint
 pnpm format       # Prettier (write)
 pnpm format:check # Prettier (check only)
@@ -92,32 +88,29 @@ ruff format app/                     # format
 | Story editor | React Flow (@xyflow/react) |
 | Backend | FastAPI, SQLModel, PostgreSQL |
 | Auth | JWT (Bearer tokens) |
-| Monorepo | Turborepo + pnpm workspaces (`web/`) |
 | Linting | ESLint + Prettier (web), Ruff (backend) |
 
 ## Project Structure
 
 ```
 web/
-├── apps/
-│   ├── writer/
-│   │   ├── app/(auth)/        login, register
-│   │   ├── app/(dashboard)/   stories list, new/edit story, overview, canvas editor
-│   │   ├── components/app/editor/  React Flow canvas, scene nodes, choice edges, panels
-│   │   ├── hooks/             React Query mutations and queries
-│   │   ├── lib/api/           typed API client + endpoint modules
-│   │   └── proxy.ts           route protection (Next.js 16 middleware → proxy)
-│   └── reader/                public discover + story detail + reading experience
-└── packages/
-    ├── ui/                    @workspace/ui — primitives, composites, globals.css (theme)
-    └── typescript-config/     @workspace/typescript-config — shared tsconfig bases
+├── app/(auth)/            login, register (shared screen with Reader | Writer toggle)
+├── app/(reader)/          public catalogue, story detail, reading experience
+├── app/become-a-writer/   4-step writer onboarding
+├── app/write/             writer mode: stories list, new/edit story, overview, canvas editor
+├── components/ui/         shadcn primitives + composites
+├── components/            headers, mode switch, auth screens, onboarding, editor
+├── hooks/                 React Query queries and mutations
+├── lib/api/               typed API client + endpoint modules
+├── lib/session.ts         session storage + useSession()
+└── proxy.ts               route protection (Next.js 16 middleware → proxy)
 
 backend/
 ├── app/
 │   ├── core/            config, database, JWT security
 │   ├── models/          User, Story, Scene, Choice (SQLModel)
 │   ├── schemas/         Pydantic request/response schemas
-│   └── routers/         auth, stories (scenes + choices nested), public
+│   └── routers/         auth, users (become-writer), stories (scenes + choices nested), public
 └── alembic/             database migrations
 ```
 
@@ -126,6 +119,10 @@ backend/
 ```
 POST /api/v1/auth/signup
 POST /api/v1/auth/signin
+GET  /api/v1/auth/me
+POST /api/v1/users/me/become-writer
+
+# writers only (403 otherwise)
 
 GET    /api/v1/stories
 POST   /api/v1/stories
@@ -140,6 +137,10 @@ DELETE /api/v1/stories/{id}/scenes/{scene_id}
 POST   /api/v1/stories/{id}/choices
 PATCH  /api/v1/stories/{id}/choices/{choice_id}
 DELETE /api/v1/stories/{id}/choices/{choice_id}
+
+# public, no auth
+GET    /api/v1/public/stories
+GET    /api/v1/public/stories/{id}
 ```
 
 ## Environment Variables
@@ -152,7 +153,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=43200
 BACKEND_CORS_ORIGINS=http://localhost:3000
 ```
 
-**`web/apps/writer/.env.local`** and **`web/apps/reader/.env.local`**
+**`web/.env.local`**
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```

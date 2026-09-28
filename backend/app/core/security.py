@@ -19,12 +19,18 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    *,
+    is_writer: bool = False,
+) -> str:
     expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+    # is_writer is a routing hint for the frontend proxy only; the API re-checks the DB.
     return jwt.encode(
-        {"sub": str(subject), "exp": expire},
+        {"sub": str(subject), "exp": expire, "is_writer": is_writer},
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
