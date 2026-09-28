@@ -1,0 +1,151 @@
+# Narrive Redesign Plan: Account Modes, Single App, Pastel UI
+
+**Status:** Agreed 2026-09-28. Not yet built. The single-app merge (section 3) is proposed and waiting for confirmation.
+
+---
+
+## 1. Why
+
+- Today there is one `users` table with no idea of "reader" vs "writer". Anyone who signs up can use both apps, and nothing tells the two roles apart.
+- Writer (`:3000`) and reader (`:3001`) are separate Next.js apps on separate origins. `localStorage` is per-origin, so moving between them means logging in twice.
+- The current "Jade pebble" green palette is being replaced with a pastel look.
+
+**Target experience**
+- Someone who signs up as a writer can switch freely between reading and writing.
+- Someone who signs up as a reader can click "Become a writer". They see a welcome, an overview of what writers get, a profile step, and a confirm checkbox, then continue as a writer.
+
+## 2. Build order
+
+1. Pastel theme
+2. Merge into one Next.js app
+3. Writer capability (backend) + become-a-writer onboarding
+4. Mode toggle + new login/register screens
+
+Each step can ship on its own.
+
+---
+
+## 3. Single Next.js app (proposed)
+
+**Why:** one origin means one session and one login page. Switching modes becomes a normal page navigation, with no token handoff between apps.
+
+**Mode comes from the URL:** `/write/*` is writer mode, everything else is reader mode.
+
+```
+web/apps/web/app/
+├── (auth)/login, register     one auth screen with Reader | Writer toggle
+├── (reader)/                  public: /, /story/[id]   gated: /story/[id]/read
+├── (writer)/write/            /write (dashboard), /write/stories, /write/stories/new,
+│                              /write/stories/[id], /write/stories/[id]/edit
+└── become-a-writer/           4-step onboarding
+```
+
+**Migration steps**
+1. Start from `apps/writer` (the larger app) and move its dashboard routes under `(writer)/write/`.
+2. Copy the reader routes into `(reader)/`.
+3. Merge `lib/api`: writer's `stories.ts` and `scenes.ts`, reader's `public.ts`, and one shared `api-client`/`auth`.
+4. Keep one copy each of `hooks/use-auth.ts` (with the reader's safe `next` redirect), `providers.tsx`, and `proxy.ts`.
+5. Load React Flow and its CSS only in the `(writer)` layout, so reader pages stay light.
+6. Delete `apps/reader`, remove `:3001` from `BACKEND_CORS_ORIGINS`, and update `CLAUDE.md`.
+
+`packages/ui` stays as it is (shared theme + primitives).
+
+**Route protection (`proxy.ts`)**
+- `/story/:id/read`: needs a token. Without one, redirect to `/login?next=…`.
+- `/write/*`: needs a token **and** `is_writer`. Non-writers go to `/become-a-writer`.
+- `/login`, `/register`: signed-in users are redirected away.
+
+**Tradeoff:** the reader and writer can no longer be deployed or scaled separately. That doesn't matter at this stage.
+
+---
+
+## 4. Account model: one account, writing is unlocked
+
+**Database (`users` table)**
+
+| New field | Type | Notes |
+|---|---|---|
+| `is_writer` | bool | default `false` |
+| `pen_name` | str, nullable | public author name |
+| `bio` | text, nullable | short author bio |
+| `genres` | JSON list | genres they write |
+| `writer_since` | datetime, nullable | set on becoming a writer |
+
+The Alembic migration backfills `is_writer = true` for users who already own stories.
+
+**API**
+- `GET /api/v1/auth/me` returns the user, including `is_writer` and the profile.
+- `POST /api/v1/users/me/become-writer` takes `{ pen_name, bio, genres, accepted_terms }` and returns a fresh token.
+- Every `/stories` endpoint returns **403** for non-writers. The backend is the source of truth.
+- The JWT carries an `is_writer` claim so `proxy.ts` can route without an API call. A new token is issued after become-writer.
+
+---
+
+## 5. Mode toggle
+
+- A "Reading | Writing" pill in the header, next to the avatar.
+- For writers, it switches between `/` and `/write`.
+- For non-writers, the Writing side reads "Become a writer ✦" and opens onboarding.
+
+---
+
+## 6. Become-a-writer onboarding (`/become-a-writer`)
+
+This is a full page with a step indicator, not a modal.
+
+1. **Welcome.** Warm hero: "Every story starts with a choice."
+2. **What you get.** Three cards: visual branching editor, publish to readers, analytics (coming soon).
+3. **Writer profile.** Pen name, bio, genres (reuses `badge-picker`).
+4. **Confirm.** A checkbox for "I agree to the community guidelines and understand published stories are public", then **Continue**. The user lands on `/write` with a "Create your first story" empty state.
+
+**Writer signup:** register → profile step → `/write`. Writers get reader mode automatically.
+
+---
+
+## 7. Login / register design
+
+Based on a reference screenshot of a split "practitioner vs organisation" portal login.
+
+**Layout: three zones**
+
+- **Left hero panel** (full-height gradient)
+  - icon badge
+  - mono uppercase eyebrow, e.g. `FOR READERS`
+  - large "Welcome back" heading and one line of supporting copy
+  - status pill: "● You're in reader mode"
+- **Centre floating card** (white, large radius, soft shadow)
+  - logo and wordmark
+  - "Log in" title, with a subtitle naming the mode ("Reader account" or "Writer account")
+  - soft filled inputs with trailing icons (mail, key)
+  - "Remember me" checkbox and a "Forgot?" link on one row
+  - full-width gradient pill button with an arrow in a circle
+  - "New here? Create account" link
+- **Right side panel** (narrower, contrasting pastel)
+  - "Here to write stories?" with a CTA button
+
+**Differences from the reference**
+- The right panel is the **mode toggle**, not a link to a different site. Clicking it swaps the panel colours and copy with an animation.
+- It's the same account in both modes. Only the post-login destination changes (`/` or `/write`).
+- In writer mode, a non-writer logging in lands on `/become-a-writer`.
+- Reader mode uses a peach → blush gradient. Writer mode uses lavender → sky.
+- On mobile, the side panels collapse into a compact mode switch above the card.
+
+---
+
+## 8. Pastel theme
+
+Tokens live in `web/packages/ui/src/styles/globals.css` and replace "Jade pebble". Changing them updates the whole app.
+
+- **Light:** cream background, soft lavender primary, with peach, mint, sky and blush accents.
+- **Dark:** deep plum background with pastel highlights.
+- **Editor:** start scene = mint, ending scene = blush.
+- **Accessibility rule:** pastel fills take **dark** text, never white. Text, links and focus rings use deeper shades of the same colours so they pass WCAG AA.
+- **Next step:** a preview page with 2–3 palette options shown on real components (buttons, cards, scene node, login card). The final tokens are picked from it.
+
+---
+
+## 9. Open questions
+
+- Confirm the single-app merge.
+- Confirm the writer profile fields (pen name, bio, genres).
+- Choose the final pastel palette from the preview.
