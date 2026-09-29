@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import { useIsFetching } from "@tanstack/react-query"
 import { BookOpen, Feather, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -16,9 +17,10 @@ export function modeOf(pathname: string): AppMode | null {
 }
 
 /** Long enough to read the message, short enough not to feel slow. */
-const MIN_VISIBLE_MS = 1100
-const FADE_OUT_MS = 450
-const SAFETY_MS = 8000
+const MIN_VISIBLE_MS = 1200
+const FADE_OUT_MS = 500
+const SETTLE_MS = 200
+const SAFETY_MS = 6000
 
 interface Transition {
   mode: AppMode
@@ -36,6 +38,7 @@ export function useModeTransition() {
 export function ModeTransitionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const fetching = useIsFetching()
   const [transition, setTransition] = useState<Transition | null>(null)
   // A ref, not state, so two clicks in the same tick can't start two transitions.
   const busy = useRef(false)
@@ -70,16 +73,16 @@ export function ModeTransitionProvider({ children }: { children: React.ReactNode
     return () => document.removeEventListener("click", onClick, true)
   }, [go])
 
-  // Leave once the new page has rendered (pathname changed) and the minimum time has passed.
   useEffect(() => {
     if (!transition || transition.phase !== "in") return
-    const arrived = pathname !== transition.from
-    const wait = arrived
-      ? Math.max(0, MIN_VISIBLE_MS - (Date.now() - transition.startedAt))
-      : SAFETY_MS
+    const elapsed = Date.now() - transition.startedAt
+    const ready = pathname !== transition.from && fetching === 0
+    const wait = ready
+      ? Math.max(SETTLE_MS, MIN_VISIBLE_MS - elapsed)
+      : Math.max(0, SAFETY_MS - elapsed)
     const timer = setTimeout(() => setTransition((t) => (t ? { ...t, phase: "out" } : t)), wait)
     return () => clearTimeout(timer)
-  }, [pathname, transition])
+  }, [pathname, fetching, transition])
 
   useEffect(() => {
     if (transition?.phase !== "out") return

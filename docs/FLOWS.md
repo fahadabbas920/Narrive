@@ -22,6 +22,8 @@ One account covers everything. Writing is switched on per account; it's not a se
 - writing: lavender;
 - admin: butter.
 
+It stays at least 1.2 seconds, and until the new page has finished loading its data, so readers never see a half-loaded page behind it. If loading takes more than 6 seconds, it gives up and shows the page anyway.
+
 Clicks on other mode links are ignored while it plays.
 
 ---

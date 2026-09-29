@@ -150,7 +150,7 @@ app/
   - writers jump between `/` and `/write`;
   - signed-in readers see "Become a writer";
   - signed-out users go to `/login?mode=writer`.
-- **Mode transition screen** (`components/mode-transition.tsx`): the provider listens for clicks on every in-app link. Any link whose target is in a different mode (reader / writer / admin, as decided by `modeOf(path)`) plays the loading screen before navigating, so plain `<Link>`s need nothing extra. Sign-in pages have no mode and are skipped. For programmatic navigation across modes, call `useModeTransition()(href, mode)`.
+- **Mode transition screen** (`components/mode-transition.tsx`): the provider listens for clicks on every in-app link. Any link whose target is in a different mode (reader / writer / admin, as decided by `modeOf(path)`) plays the loading screen before navigating, so plain `<Link>`s need nothing extra. Sign-in pages have no mode and are skipped. The screen leaves only once the URL has changed, React Query has nothing in flight (`useIsFetching() === 0` for 200 ms) and 1.2 s have passed, with a 6 s safety cap. That way the destination's own spinners and skeletons never show through. For programmatic navigation across modes, call `useModeTransition()(href, mode)`.
 - A **401** clears the session. It only redirects to `/login` when the user is on a protected path; public browsing silently signs out.
 
 ### Super admin (`/admin`)

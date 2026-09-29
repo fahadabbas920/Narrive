@@ -34,7 +34,7 @@ export function ModeSwitch({
     ? "/login?mode=writer&next=%2Fwrite"
     : isWriter === false
       ? "/become-a-writer"
-      : "/write"
+      : "/write/stories"
   const canWrite = !session || isWriter !== false
 
   const segment = cn(
