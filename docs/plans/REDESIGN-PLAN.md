@@ -1,6 +1,6 @@
 # Narrive Redesign Plan: Account Modes, Single App, Pastel UI
 
-**Status:** Built 2026-09-28. The frontend was then also flattened from a Turborepo monorepo into one plain Next.js app at `web/`, and the shared UI package now lives in `web/components/ui`. [CLAUDE.md](CLAUDE.md) describes the current code; this file keeps the original reasoning.
+**Status:** Built 2026-09-28. The frontend was then also flattened from a Turborepo monorepo into one plain Next.js app at `web/`, and the shared UI package now lives in `web/components/ui`. [CLAUDE.md](../../CLAUDE.md) describes the current code; this file keeps the original reasoning.
 
 **Differences from the plan as built**
 - Final palette: cream background, `#6a57b8` primary. Chosen by contrast checks instead of a preview page, and easy to retune in `web/app/globals.css`.

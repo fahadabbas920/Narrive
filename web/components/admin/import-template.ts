@@ -1,4 +1,4 @@
-/** A complete, valid example in the "narrive-story" v1 format (see ADMIN-PLAN.md §5). */
+/** A complete, valid example in the "narrive-story" v1 format (see docs/plans/ADMIN-PLAN.md §5). */
 export const IMPORT_TEMPLATE = {
   format: "narrive-story",
   version: 1,

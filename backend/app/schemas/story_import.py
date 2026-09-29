@@ -1,7 +1,7 @@
 """The bulk-import file format ("narrive-story", version 1).
 
 Scenes are identified by short keys the file makes up itself; each choice sits inside the
-scene it starts from and points at another scene's key. See ADMIN-PLAN.md §5."""
+scene it starts from and points at another scene's key. See docs/plans/ADMIN-PLAN.md §5."""
 
 from typing import Literal
 

@@ -6,12 +6,12 @@ A text-based interactive storytelling platform. Writers create branching narrati
 
 **One account, two modes.** Every user can read. Writing is unlocked per account (`users.is_writer`) through the become-a-writer onboarding. Both modes live in a single Next.js app, and the URL decides the mode: `/write/*` is writer mode, everything else is reader mode.
 
-**Product flows** (every reader, writer and admin flow, rules, limits, user-facing messages and support answers) live in [FLOWS.md](FLOWS.md). Read it before writing support docs or help text, and update it whenever a flow, rule, limit or message changes.
+**Product flows** (every reader, writer and admin flow, rules, limits, user-facing messages and support answers) live in [FLOWS.md](docs/FLOWS.md). Read it before writing support docs or help text, and update it whenever a flow, rule, limit or message changes.
 
 ## Working rules (for Claude)
 
 - **Don't run dev servers or test the UI** unless the user explicitly asks. That means no `pnpm dev`, `uvicorn`, Playwright or browser screenshots, and never stop or restart the user's running servers.
-- When a change affects what users see or can do, update [FLOWS.md](FLOWS.md) in the same change.
+- When a change affects what users see or can do, update [FLOWS.md](docs/FLOWS.md) in the same change.
 - Verify changes with static checks only: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and `ruff check` for the backend. Don't run `pnpm build` either: it writes to `web/.next`, which breaks a dev server the user may have running.
 - **Don't `git commit` or push** unless the user asks for it. Leave changes in the working tree.
 
@@ -20,8 +20,15 @@ A text-based interactive storytelling platform. Writers create branching narrati
 ```
 storybook/
 ├── web/        Single Next.js 16 app — reader + writer modes (:3000). Plain pnpm project, no monorepo.
-└── backend/    FastAPI app (REST API + PostgreSQL) (:8000)
+├── backend/    FastAPI app (REST API + PostgreSQL) (:8000)
+└── docs/       Product and planning docs (see docs/README.md)
+    ├── FLOWS.md             every user flow, rule, limit and support answer
+    ├── LAUNCH-AUDIT.md      what's left before going to market
+    ├── FUTURE-EXPANSION.md  ideas not yet planned
+    └── plans/               one *-PLAN.md per feature (built and upcoming)
 ```
+
+New planning docs go in `docs/plans/`, and new ideas go in `docs/FUTURE-EXPANSION.md`. Keep only `CLAUDE.md` and `README.md` in the root.
 
 ## Running locally
 
@@ -63,7 +70,7 @@ app/
 │   ├── reading/page.tsx          My reading: a one-line summary + Continue reading / Read later / Finished (needs session)
 │   └── writers/[handle]/page.tsx public writer profile
 ├── become-a-writer/page.tsx      4-step onboarding (needs session)
-├── admin/                        super admin console (needs session + admin_role; see ADMIN-PLAN.md)
+├── admin/                        super admin console (needs session + admin_role; see docs/plans/ADMIN-PLAN.md)
 │   ├── layout.tsx                admin shell (Sidebar/Navbar variant="admin") wrapped in <AdminGate>
 │   ├── page.tsx                  overview: stat tiles, 30-day charts, funnel, genres/moods, health, activity
 │   ├── users/, users/[id]        users table; detail with suspend / revoke-writer actions
@@ -392,9 +399,9 @@ GET    /api/v1/admin/audit                   ?action (exact or "story." prefix)&
 
 ## Redesign history
 
-- **2026-09-28:** the account-modes / single-app / pastel redesign, specified in [REDESIGN-PLAN.md](REDESIGN-PLAN.md). The frontend was also flattened from a Turborepo monorepo into one plain Next.js app.
-- **2026-09-29:** the super admin console, Narrive Originals and bulk import, specified in [ADMIN-PLAN.md](ADMIN-PLAN.md).
-- **2026-09-29:** reading progress on the server, Read later and reading stats, specified in [READING-STATS-PLAN.md](READING-STATS-PLAN.md).
+- **2026-09-28:** the account-modes / single-app / pastel redesign, specified in [REDESIGN-PLAN.md](docs/plans/REDESIGN-PLAN.md). The frontend was also flattened from a Turborepo monorepo into one plain Next.js app.
+- **2026-09-29:** the super admin console, Narrive Originals and bulk import, specified in [ADMIN-PLAN.md](docs/plans/ADMIN-PLAN.md).
+- **2026-09-29:** reading progress on the server, Read later and reading stats, specified in [READING-STATS-PLAN.md](docs/plans/READING-STATS-PLAN.md).
 
 ---
 
