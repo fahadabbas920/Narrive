@@ -59,8 +59,8 @@ MAX_PAGE_SIZE = 100
 
 
 def _now() -> datetime:
-    # Timestamp columns are naive UTC.
-    return datetime.now(UTC).replace(tzinfo=None)
+    # Always timezone-aware: newer SQLModel rejects naive datetimes as query parameters.
+    return datetime.now(UTC)
 
 
 def _audit(
@@ -135,7 +135,7 @@ def overview(db: Session = Depends(get_session), _: User = Depends(get_current_a
 
     # 30 daily buckets, today included. Bucketed in Python to stay database-agnostic.
     first_day = now.date() - timedelta(days=29)
-    since = datetime.combine(first_day, datetime.min.time())
+    since = datetime.combine(first_day, datetime.min.time(), tzinfo=UTC)
     signups = Counter(
         d.date()
         for d in db.exec(
@@ -932,7 +932,8 @@ def audit_log(
     if actor:
         query = query.where(AdminAction.actor_id == actor)
     if since:
-        query = query.where(AdminAction.created_at >= datetime.combine(since, datetime.min.time()))
+        start = datetime.combine(since, datetime.min.time(), tzinfo=UTC)
+        query = query.where(AdminAction.created_at >= start)
     total = _count(db, query)
     items = _audit_entries(
         db,
