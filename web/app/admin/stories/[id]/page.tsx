@@ -40,6 +40,7 @@ import {
   formatDate,
 } from "@/components/admin/admin-ui"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
+import { ReadingStatsPanel } from "@/components/stats/reading-stats-panel"
 import { showToast } from "@/lib/toast"
 import { wordCount } from "@/lib/story-graph"
 import { cn } from "@/lib/utils"
@@ -347,6 +348,11 @@ export default function AdminStoryPage({ params }: { params: Promise<{ id: strin
               </ul>
             )}
           </Panel>
+
+          <div>
+            <h2 className="text-foreground mb-3 text-sm font-bold">Readers</h2>
+            <ReadingStatsPanel scope={{ scope: "story", id: story.id }} />
+          </div>
 
           <Panel title="Scenes" description="Read-only outline, start first.">
             {scenes.length === 0 ? (

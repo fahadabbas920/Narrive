@@ -25,6 +25,7 @@ import {
 import { StoryTable } from "@/components/admin/story-table"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import { WriterAvatar } from "@/components/writer-avatar"
+import { ReadingStatsPanel } from "@/components/stats/reading-stats-panel"
 
 type Pending = { field: "is_active" | "is_writer"; value: boolean } | null
 
@@ -185,6 +186,9 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
           )}
         </Panel>
       </div>
+
+      <h2 className="text-foreground mt-8 mb-3 text-sm font-bold">Reading</h2>
+      <ReadingStatsPanel scope={{ scope: "user", id: user.id }} />
 
       <h2 className="text-foreground mt-8 mb-3 text-sm font-bold">Stories</h2>
       {user.stories.length === 0 ? (

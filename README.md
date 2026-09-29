@@ -14,6 +14,8 @@ One account works in two modes. Everyone can **read**. **Writing** is unlocked t
 - bulk JSON import, including a copyable prompt for writing stories with AI;
 - an audit log.
 
+Readers get a **My reading** page: stats, Continue reading, Read later and Finished. Progress is saved on the server, so it follows you across devices.
+
 Stories are structured as decision trees. At key moments, readers select from multiple options leading to different scenes, storylines, and endings. The experience is entirely text-based — no graphics, no game mechanics, just writing.
 
 ```
@@ -160,9 +162,13 @@ DELETE /api/v1/stories/{id}/choices/{choice_id}
 
 # public, no auth
 GET    /api/v1/taxonomy
-GET    /api/v1/public/stories
+GET    /api/v1/public/stories            # paged: ?q&genre&mood&rating&limit&cursor
+GET    /api/v1/public/stories/facets
 GET    /api/v1/public/stories/{id}
 GET    /api/v1/public/writers/{handle}
+
+# the signed-in reader: progress, Read later, stats
+/api/v1/me/reading, /me/reading/{story_id}, /me/reading/stats, /me/saved, /me/library
 
 # super admins only (403 otherwise) — full list in CLAUDE.md
 /api/v1/admin/overview, /users, /stories, /originals, /imports, /audit

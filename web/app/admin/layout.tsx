@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Sidebar variant="admin" />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar variant="admin" />
-        <div className="flex flex-1 flex-col overflow-y-auto">
+        <div className="relative flex flex-1 flex-col overflow-y-auto">
           <AdminGate>{children}</AdminGate>
         </div>
       </div>

@@ -42,7 +42,8 @@ export function useSignIn(options: AuthOptions) {
     mutationFn: (data: LoginFormData) => authApi.signin(data.email, data.password),
     onSuccess: (token, variables) => {
       setSession(token.access_token, variables.email)
-      queryClient.removeQueries({ queryKey: ["me"] })
+      // A different person may be signing in: drop everything cached for the last session.
+      queryClient.clear()
       showToast.success("Welcome back")
       router.push(destinationAfterSignIn(token.access_token, options))
     },
@@ -63,7 +64,8 @@ export function useSignUp(options: AuthOptions) {
     },
     onSuccess: (token, variables) => {
       setSession(token.access_token, variables.email)
-      queryClient.removeQueries({ queryKey: ["me"] })
+      // A different person may be signing in: drop everything cached for the last session.
+      queryClient.clear()
       showToast.success("Welcome to Narrive")
       router.push(
         options.mode === "writer"

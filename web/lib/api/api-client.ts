@@ -92,6 +92,8 @@ export const apiClient = ({ baseUrl }: ApiClient) => ({
     fetchWithInterceptors<T>(baseUrl + url, { method: "POST", body }),
   patch: async <T>(url: string, body: unknown): Promise<T> =>
     fetchWithInterceptors<T>(baseUrl + url, { method: "PATCH", body }),
+  put: async <T>(url: string, body: unknown): Promise<T> =>
+    fetchWithInterceptors<T>(baseUrl + url, { method: "PUT", body }),
   delete: async <T>(url: string, body?: unknown): Promise<T> =>
     fetchWithInterceptors<T>(baseUrl + url, { method: "DELETE", body }),
 })

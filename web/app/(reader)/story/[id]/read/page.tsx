@@ -20,14 +20,26 @@ import { publicApi, type PublicStoryDetail } from "@/lib/api/public"
 import type { Scene } from "@/lib/api/stories"
 import { TEXT_SIZES, useReaderPrefs, type ReaderPrefs, type ReadingTheme } from "@/lib/reader-prefs"
 import { loadProgress, saveProgress } from "@/lib/reading-progress"
+import type { Progress } from "@/lib/api/reading"
+import { useSaveProgress, useStoryProgress } from "@/hooks/use-reading"
 import { ReadingSettings } from "@/components/reader/reading-settings"
 import { AUTO_THEME_CSS, READING_THEMES, themeVars } from "@/components/reader/reading-themes"
 
 const barButton =
   "flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-(--read-border) bg-(--read-card) text-(--read-fg) shadow-sm transition-all hover:border-(--read-accent) hover:bg-(--read-soft) active:scale-95 disabled:pointer-events-none disabled:opacity-35 disabled:shadow-none"
 
-export default function ReadPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ReadPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ restart?: string }>
+}) {
   const { id } = use(params)
+  const restart = use(searchParams).restart === "1"
+  const server = useStoryProgress(id)
+  // Wait for server progress (or its failure) before choosing where to resume.
+  const progressReady = !server.isPending || server.fetchStatus === "idle"
   const { data: story, isLoading } = useQuery({
     queryKey: ["public-story", id],
     queryFn: () => publicApi.getStory(id),
@@ -62,7 +74,7 @@ export default function ReadPage({ params }: { params: Promise<{ id: string }> }
       className="flex min-h-screen flex-col bg-(--read-bg) text-(--read-fg) transition-colors duration-500"
     >
       <style>{AUTO_THEME_CSS}</style>
-      {isLoading ? (
+      {isLoading || !progressReady ? (
         <div className="mx-auto w-full max-w-2xl animate-pulse space-y-4 px-6 pt-32">
           <div className="h-4 w-24 rounded-full bg-(--read-soft)" />
           <div className="h-5 w-full rounded-full bg-(--read-soft)" />
@@ -80,7 +92,15 @@ export default function ReadPage({ params }: { params: Promise<{ id: string }> }
           </Link>
         </div>
       ) : (
-        <Reader key={story.id} story={story} prefs={prefs} theme={theme} onPrefs={updatePrefs} />
+        <Reader
+          key={story.id}
+          story={story}
+          server={server.data ?? null}
+          freshRun={restart}
+          prefs={prefs}
+          theme={theme}
+          onPrefs={updatePrefs}
+        />
       )}
 
       {/* Brightness: a dimmer over the page (settings popover sits above it). */}
@@ -104,11 +124,16 @@ interface Nav {
 
 function Reader({
   story,
+  server,
+  freshRun,
   prefs,
   theme,
   onPrefs,
 }: {
   story: PublicStoryDetail
+  /** Progress saved on the server; null if this reader hasn't started (or it couldn't load). */
+  server: Progress | null
+  freshRun: boolean
   prefs: ReaderPrefs
   theme: ReadingTheme
   onPrefs: (patch: Partial<ReaderPrefs>) => void
@@ -117,20 +142,25 @@ function Reader({
   const start = story.scenes.find((s) => s.scene_type === "start") as Scene
   const endingTotal = story.scenes.filter((s) => s.scene_type === "ending").length
 
-  // Resume from this device's saved progress when it still matches the story.
+  // Resume from the server first, then this device's copy; `?restart=1` starts a fresh run.
   const [initial] = useState(() => {
-    const saved = loadProgress(story.id)
-    if (!saved || !scenesById.has(saved.sceneId))
-      return {
-        nav: { sceneId: start.id, history: [] },
-        endings: saved?.endings ?? [],
-        resumed: false,
-      }
-    const history = saved.history.filter((sid) => scenesById.has(sid))
+    const local = loadProgress(story.id)
+    const endings = [...new Set([...(server?.endings_found ?? []), ...(local?.endings ?? [])])]
+    const fresh = { sceneId: start.id, history: [] as string[] }
+    const saved =
+      server?.current_scene_id && scenesById.has(server.current_scene_id)
+        ? { sceneId: server.current_scene_id, history: server.history }
+        : local && scenesById.has(local.sceneId)
+          ? { sceneId: local.sceneId, history: local.history }
+          : null
+    const nav =
+      freshRun || !saved
+        ? fresh
+        : { sceneId: saved.sceneId, history: saved.history.filter((sid) => scenesById.has(sid)) }
     return {
-      nav: { sceneId: saved.sceneId, history },
-      endings: saved.endings,
-      resumed: saved.sceneId !== start.id || history.length > 0,
+      nav,
+      endings,
+      resumed: nav.sceneId !== start.id || nav.history.length > 0,
     }
   })
   const [nav, setNav] = useState<Nav>(initial.nav)
@@ -149,9 +179,22 @@ function Reader({
     ? 100
     : Math.min(92, Math.round((step / Math.max(story.scenes.length, 1)) * 100))
 
+  // Drop `?restart=1` once used, so a refresh resumes this run instead of wiping it.
+  useEffect(() => {
+    if (freshRun) window.history.replaceState(null, "", `/story/${story.id}/read`)
+  }, [freshRun, story.id])
+
   useEffect(() => {
     saveProgress(story.id, { ...nav, endings })
   }, [story.id, nav, endings])
+
+  // Every step is saved to the server in the background; a failed save is simply
+  // superseded by the next one (the server accepts several steps at once), so reading
+  // never waits on the network.
+  const { mutate: pushProgress } = useSaveProgress(story.id)
+  useEffect(() => {
+    pushProgress({ scene_id: nav.sceneId, history: nav.history })
+  }, [nav, pushProgress])
 
   function scrollTop() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches

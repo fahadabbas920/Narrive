@@ -32,18 +32,22 @@ export function DailyColumns({
   const noun = (n: number) => (n === 1 ? unit[0] : unit[1])
 
   return (
-    <figure className="m-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-foreground text-2xl font-extrabold tracking-tight">
-          {total.toLocaleString()}
-          <span className="text-muted-foreground ml-1.5 text-xs font-semibold">
-            {noun(total)} in 30 days
-          </span>
-        </p>
-        <p className="text-muted-foreground h-4 text-xs tabular-nums" aria-live="polite">
-          {point ? `${shortDate(point.date)} · ${point.value} ${noun(point.value)}` : ""}
-        </p>
-      </div>
+    <figure className="relative m-0">
+      {/* The hover readout has its own reserved line, so narrow cards never wrap or jump. */}
+      <p className="text-foreground truncate text-2xl font-extrabold tracking-tight">
+        {total.toLocaleString()}
+        <span className="text-muted-foreground ml-1.5 text-xs font-semibold">
+          {noun(total)} in 30 days
+        </span>
+      </p>
+      <p
+        className="text-muted-foreground mt-0.5 h-4 truncate text-xs tabular-nums"
+        aria-live="polite"
+      >
+        {point
+          ? `${shortDate(point.date)} · ${point.value} ${noun(point.value)}`
+          : "Hover a bar for that day"}
+      </p>
 
       <div className="relative mt-3 flex h-36 gap-2">
         <div className="text-muted-foreground flex w-6 flex-col justify-between text-right text-[10px] tabular-nums">
@@ -81,23 +85,25 @@ export function DailyColumns({
         <span>{data.at(-1) && "Today"}</span>
       </div>
 
-      <table className="sr-only">
-        <caption>{label}, daily for the last 30 days</caption>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>{unit[1]}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((d) => (
-            <tr key={d.date}>
-              <td>{d.date}</td>
-              <td>{d.value}</td>
+      <div className="sr-only">
+        <table>
+          <caption>{label}, daily for the last 30 days</caption>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>{unit[1]}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((d) => (
+              <tr key={d.date}>
+                <td>{d.date}</td>
+                <td>{d.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   )
 }
@@ -115,7 +121,7 @@ export function BarList({
   if (!items.length)
     return <p className="text-muted-foreground py-6 text-center text-sm">{empty}</p>
   return (
-    <figure className="m-0">
+    <figure className="relative m-0">
       <ul className="space-y-2.5" aria-hidden>
         {items.map((item) => (
           <li
@@ -140,20 +146,22 @@ export function BarList({
           </li>
         ))}
       </ul>
-      <table className="sr-only">
-        <caption>{label}</caption>
-        <tbody>
-          {items.map((i) => (
-            <tr key={i.name}>
-              <th scope="row">{i.name}</th>
-              <td>
-                {i.value}
-                {i.note ? ` (${i.note})` : ""}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="sr-only">
+        <table>
+          <caption>{label}</caption>
+          <tbody>
+            {items.map((i) => (
+              <tr key={i.name}>
+                <th scope="row">{i.name}</th>
+                <td>
+                  {i.value}
+                  {i.note ? ` (${i.note})` : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   )
 }

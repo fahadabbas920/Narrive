@@ -2,6 +2,7 @@ import Link from "next/link"
 import { AccountMenu } from "@/components/account-menu"
 import { BrandMark } from "@/components/brand"
 import { ModeSwitch } from "@/components/mode-switch"
+import { MyReadingLink } from "@/components/reader/my-reading-link"
 import { PageContainer } from "@/components/page-container"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -11,16 +12,18 @@ export function ReaderHeader() {
       <PageContainer className="grid h-16 grid-cols-[1fr_auto] items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
         <Link href="/" className="flex w-fit items-center gap-2.5">
           <BrandMark className="h-8 w-8" />
-          <span className="text-foreground text-[17px] font-extrabold tracking-tight">Narrive</span>
+          <span className="text-foreground hidden text-[17px] font-extrabold tracking-tight min-[420px]:inline">
+            Narrive
+          </span>
         </Link>
         <ModeSwitch className="hidden md:flex" />
         <div className="flex items-center justify-end gap-1.5">
+          {/* Below md the switch is icon-only and sits in this row instead of the centre. */}
+          <ModeSwitch className="md:hidden" />
+          <MyReadingLink />
           <ThemeToggle />
           <AccountMenu />
         </div>
-      </PageContainer>
-      <PageContainer className="flex justify-center pb-3 md:hidden">
-        <ModeSwitch />
       </PageContainer>
     </header>
   )

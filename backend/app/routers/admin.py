@@ -16,6 +16,7 @@ from app.core.database import get_session
 from app.core.deps import get_current_admin, is_admin
 from app.core.importer import commit_import, stories_in_import, validate_import
 from app.core.originals import get_house_account
+from app.core.reading import reading_stats
 from app.core.story_graph import Node, analyze
 from app.models.admin import AdminAction, StoryImport
 from app.models.story import Choice, Scene, Story, StoryStatus
@@ -43,6 +44,7 @@ from app.schemas.admin import (
     RecentUser,
     TopWriter,
 )
+from app.schemas.reading import ReadingStats
 from app.schemas.story import ChoiceRead, SceneRead, StoryCreate
 from app.schemas.story_import import (
     IMPORT_FORMAT,
@@ -271,6 +273,31 @@ def overview_health(db: Session = Depends(get_session), _: User = Depends(get_cu
             )
     rows.sort(key=lambda r: (not any(i.level == "error" for i in r.issues), -len(r.issues)))
     return HealthReport(checked=len(stories), with_issues=len(rows), stories=rows)
+
+
+@router.get("/reading-stats", response_model=ReadingStats)
+def platform_reading_stats(
+    days: int = Query(30, ge=7, le=90),
+    db: Session = Depends(get_session),
+    _: User = Depends(get_current_admin),
+):
+    return reading_stats(db, days=days)
+
+
+@router.get("/users/{user_id}/reading-stats", response_model=ReadingStats)
+def user_reading_stats(
+    user_id: UUID, db: Session = Depends(get_session), _: User = Depends(get_current_admin)
+):
+    _get_person(db, user_id)
+    return reading_stats(db, user_id=user_id)
+
+
+@router.get("/stories/{story_id}/reading-stats", response_model=ReadingStats)
+def story_reading_stats(
+    story_id: UUID, db: Session = Depends(get_session), _: User = Depends(get_current_admin)
+):
+    _get_story(db, story_id)
+    return reading_stats(db, story_id=story_id)
 
 
 # ── Users ────────────────────────────────────────────────────────────────────

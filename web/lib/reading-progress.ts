@@ -1,4 +1,4 @@
-/** Where a reader is in a story, kept on this device so they can pick up where they left off. */
+/** This device's copy of reading progress: a fast fallback for the server copy (hooks/use-reading). */
 export interface ReadingProgress {
   sceneId: string
   history: string[]

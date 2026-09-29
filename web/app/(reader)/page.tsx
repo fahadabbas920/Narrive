@@ -1,10 +1,21 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, BookOpen, PenLine, Search, Sparkles, Star, X } from "lucide-react"
-import { publicApi, type PublicStory } from "@/lib/api/public"
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query"
+import {
+  ArrowRight,
+  BookOpen,
+  ChevronDown,
+  Loader2,
+  PenLine,
+  Search,
+  Sparkles,
+  Star,
+  X,
+} from "lucide-react"
+import { publicApi } from "@/lib/api/public"
+import { cn } from "@/lib/utils"
 import { useRatingLabel, useTaxonomy } from "@/hooks/use-taxonomy"
 import { PageContainer } from "@/components/page-container"
 import { ReaderFooter, ReaderHeader } from "@/components/reader-header"
@@ -97,69 +108,68 @@ function WriteCallout() {
   )
 }
 
+const PAGE_SIZE = 12
+
 export default function DiscoverPage() {
-  const { data: stories, isLoading } = useQuery({
-    queryKey: ["public-stories"],
-    queryFn: publicApi.listStories,
-  })
   const { data: taxonomy } = useTaxonomy()
   const contentRatingLabel = useRatingLabel()
   const [query, setQuery] = useState("")
+  const [search, setSearch] = useState("")
   const [genres, setGenres] = useState<string[]>([])
   const [moods, setMoods] = useState<string[]>([])
   const [ratings, setRatings] = useState<string[]>([])
 
+  // Search runs on the server, so wait for a pause in typing before asking.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(query.trim()), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const filters = { q: search, genre: genres, mood: moods, rating: ratings }
+  const catalogue = useInfiniteQuery({
+    queryKey: ["public-stories", "list", filters],
+    queryFn: ({ pageParam }) =>
+      publicApi.listStories({ ...filters, limit: PAGE_SIZE, cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    placeholderData: keepPreviousData,
+  })
+  const { data: featuredPage } = useQuery({
+    queryKey: ["public-stories", "featured"],
+    queryFn: () => publicApi.listStories({ featured: true, limit: 6 }),
+  })
+  const { data: facets } = useQuery({
+    queryKey: ["public-stories", "facets"],
+    queryFn: publicApi.facets,
+  })
+
+  const pages = catalogue.data?.pages ?? []
+  const total = pages[0]?.total ?? 0
+  const loaded = pages.reduce((n, p) => n + p.items.length, 0)
+  const isLoading = catalogue.isLoading
+  const featured = featuredPage?.items ?? []
+
   const options = useMemo(() => {
-    const list = stories ?? []
-    const count = (pick: (s: PublicStory) => string[]) => (value: string) =>
-      list.filter((s) => pick(s).includes(value)).length
-    const genreCount = count((s) => s.genres ?? [])
-    const moodCount = count((s) => s.moods ?? [])
-    const ratingCount = count((s) => (s.content_rating ? [s.content_rating] : []))
     // Taxonomy first, then any legacy values stories still carry.
-    const withExtras = (base: string[], pick: (s: PublicStory) => string[]) =>
-      Array.from(new Set([...base, ...list.flatMap(pick)]))
+    const withExtras = (base: string[], counts: Record<string, number> = {}) =>
+      Array.from(new Set([...base, ...Object.keys(counts)]))
     return {
-      genres: withExtras(taxonomy?.genres ?? [], (s) => s.genres ?? []).map(
-        (g): FilterOption => ({
-          value: g,
-          label: g,
-          count: genreCount(g),
-        }),
+      genres: withExtras(taxonomy?.genres ?? [], facets?.genres).map(
+        (g): FilterOption => ({ value: g, label: g, count: facets?.genres[g] ?? 0 }),
       ),
-      moods: withExtras(taxonomy?.moods ?? [], (s) => s.moods ?? []).map(
-        (m): FilterOption => ({
-          value: m,
-          label: m,
-          count: moodCount(m),
-        }),
+      moods: withExtras(taxonomy?.moods ?? [], facets?.moods).map(
+        (m): FilterOption => ({ value: m, label: m, count: facets?.moods[m] ?? 0 }),
       ),
       ratings: (taxonomy?.content_ratings ?? []).map(
         (r): FilterOption => ({
           value: r.value,
           label: r.label,
           hint: r.hint,
-          count: ratingCount(r.value),
+          count: facets?.ratings[r.value] ?? 0,
         }),
       ),
     }
-  }, [stories, taxonomy])
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const anyOf = (picked: string[], values: string[] | undefined) =>
-      picked.length === 0 || picked.some((p) => values?.includes(p))
-    return (stories ?? []).filter(
-      (s) =>
-        anyOf(genres, s.genres) &&
-        anyOf(moods, s.moods) &&
-        anyOf(ratings, s.content_rating ? [s.content_rating] : []) &&
-        (!q ||
-          s.title.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q) ||
-          s.author_name?.toLowerCase().includes(q)),
-    )
-  }, [stories, query, genres, moods, ratings])
+  }, [facets, taxonomy])
 
   const activeFilters = [
     ...genres.map((v) => ({
@@ -178,16 +188,7 @@ export default function DiscoverPage() {
       remove: () => setRatings(ratings.filter((x) => x !== v)),
     })),
   ]
-  const filtering = !!query.trim() || activeFilters.length > 0
-
-  const featured = useMemo(
-    () =>
-      (stories ?? [])
-        .filter((s) => s.is_featured)
-        .sort((a, b) => (a.featured_rank ?? Infinity) - (b.featured_rank ?? Infinity))
-        .slice(0, 6),
-    [stories],
-  )
+  const filtering = !!search || activeFilters.length > 0
 
   function clearAll() {
     setQuery("")
@@ -271,8 +272,8 @@ export default function DiscoverPage() {
                   {isLoading
                     ? "Loading stories…"
                     : filtering
-                      ? `${filtered.length} of ${stories?.length ?? 0} stories`
-                      : `${stories?.length ?? 0} published`}
+                      ? `${total} of ${facets?.total ?? total} stories`
+                      : `${total} published`}
                 </p>
               </div>
 
@@ -361,7 +362,7 @@ export default function DiscoverPage() {
                   />
                 ))}
               </div>
-            ) : filtered.length === 0 ? (
+            ) : total === 0 ? (
               <div className="bg-card border-border flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed py-20 text-center">
                 <div className="bg-peach flex h-14 w-14 items-center justify-center rounded-2xl">
                   <BookOpen className="text-peach-ink h-7 w-7" />
@@ -385,10 +386,54 @@ export default function DiscoverPage() {
                 )}
               </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((story) => (
-                  <PublicStoryCard key={story.id} story={story} />
+              <div
+                className={cn(
+                  "space-y-6 transition-opacity",
+                  catalogue.isFetching && !catalogue.isFetchingNextPage && "opacity-60",
+                )}
+              >
+                {pages.map((page, i) => (
+                  // Each page of 12 fills whole rows at 1, 2 or 3 columns, so pages stack
+                  // seamlessly. Pages far off screen are skipped by the browser
+                  // (content-visibility), so a long scroll stays light on small devices.
+                  // The padding gives card shadows room inside the paint containment.
+                  <div
+                    key={page.items[0]?.id ?? i}
+                    className="-m-4 grid gap-6 p-4 [contain-intrinsic-size:auto_1200px] [content-visibility:auto] sm:grid-cols-2 lg:grid-cols-3"
+                  >
+                    {page.items.map((story) => (
+                      <PublicStoryCard key={story.id} story={story} />
+                    ))}
+                  </div>
                 ))}
+                <div className="flex flex-col items-center gap-2 pt-4">
+                  {catalogue.hasNextPage ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => catalogue.fetchNextPage()}
+                        disabled={catalogue.isFetchingNextPage}
+                        className="bg-card border-border text-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold shadow-sm transition-colors disabled:opacity-60"
+                      >
+                        {catalogue.isFetchingNextPage ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                        {catalogue.isFetchingNextPage ? "Loading…" : "Load more stories"}
+                      </button>
+                      <p className="text-muted-foreground text-xs">
+                        Showing {loaded} of {total}
+                      </p>
+                    </>
+                  ) : (
+                    loaded > PAGE_SIZE && (
+                      <p className="text-muted-foreground text-sm">
+                        You&apos;ve seen all {total} stories.
+                      </p>
+                    )
+                  )}
+                </div>
               </div>
             )}
           </div>

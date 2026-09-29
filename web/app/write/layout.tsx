@@ -8,7 +8,7 @@ export default function WriterLayout({ children }: { children: React.ReactNode }
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar />
-        <div className="flex flex-1 flex-col overflow-y-auto">
+        <div className="relative flex flex-1 flex-col overflow-y-auto">
           <WriterGate>{children}</WriterGate>
         </div>
       </div>

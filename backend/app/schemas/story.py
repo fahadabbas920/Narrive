@@ -146,3 +146,18 @@ class PublicStoryRead(StoryRead, PublicAuthor):
 
 class PublicStoryDetail(StoryDetail, PublicAuthor):
     pass
+
+
+class PublicStoryPage(BaseModel):
+    items: list[PublicStoryRead]
+    total: int
+    next_cursor: str | None = None
+
+
+class StoryFacets(BaseModel):
+    """How many catalogue stories carry each genre, mood and rating (for the filter menus)."""
+
+    total: int
+    genres: dict[str, int]
+    moods: dict[str, int]
+    ratings: dict[str, int]

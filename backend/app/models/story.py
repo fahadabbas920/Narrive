@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Index, Text, text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -25,6 +25,15 @@ class SceneType(StrEnum):
 
 class Story(SQLModel, table=True):
     __tablename__ = "stories"
+    __table_args__ = (
+        # Matches the catalogue's ORDER BY (migration f3b8d2a6c4e1).
+        Index(
+            "ix_stories_catalogue_order",
+            "status",
+            text("coalesce(published_at, created_at) DESC"),
+            text("id DESC"),
+        ),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     author_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)

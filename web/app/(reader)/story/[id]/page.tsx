@@ -14,6 +14,7 @@ import {
   Hash,
   Lock,
   PlayCircle,
+  RotateCcw,
   ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -24,6 +25,11 @@ import { getToken, useSession } from "@/lib/session"
 import { PageContainer } from "@/components/page-container"
 import { ReaderFooter, ReaderHeader } from "@/components/reader-header"
 import { WriterAvatar } from "@/components/writer-avatar"
+import { SaveButton } from "@/components/reader/save-button"
+import { EndingsMeter } from "@/components/stats/endings-meter"
+import { ReadingStatusBadge } from "@/components/stats/reading-status-badge"
+import { useStoryProgress } from "@/hooks/use-reading"
+import { timeAgo } from "@/lib/time"
 
 function BackLink() {
   return (
@@ -51,8 +57,12 @@ export default function StoryDetailPage({ params }: { params: Promise<{ id: stri
     queryFn: () => publicApi.getStory(id),
   })
 
+  const { data: progress } = useStoryProgress(id)
+  const done = progress?.status === "finished" || progress?.status === "all_endings"
+
   function startReading() {
-    const readPath = `/story/${id}/read`
+    // A finished story starts a fresh run; anything else resumes where you left off.
+    const readPath = `/story/${id}/read${done ? "?restart=1" : ""}`
     router.push(getToken() ? readPath : `/login?next=${encodeURIComponent(readPath)}`)
   }
 
@@ -219,8 +229,12 @@ export default function StoryDetailPage({ params }: { params: Promise<{ id: stri
                       onClick={startReading}
                       className="from-peach via-blush to-lavender text-foreground group mt-5 flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-linear-to-r text-base font-bold shadow-md ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
                     >
-                      <PlayCircle className="text-blush-ink h-5 w-5" />
-                      Start reading
+                      {done ? (
+                        <RotateCcw className="text-blush-ink h-5 w-5" />
+                      ) : (
+                        <PlayCircle className="text-blush-ink h-5 w-5" />
+                      )}
+                      {done ? "Read again" : progress ? "Continue reading" : "Start reading"}
                       <span className="bg-card/85 flex h-8 w-8 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5">
                         <ArrowRight className="text-blush-ink h-4 w-4" />
                       </span>
@@ -231,9 +245,63 @@ export default function StoryDetailPage({ params }: { params: Promise<{ id: stri
                     </p>
                   )}
 
+                  <SaveButton
+                    storyId={story.id}
+                    title={story.title}
+                    variant="full"
+                    className="mt-2 w-full"
+                  />
+
+                  {progress && (
+                    <div className="bg-background mt-4 space-y-2.5 rounded-2xl p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-foreground text-xs font-bold">Your progress</p>
+                        <ReadingStatusBadge status={progress.status} />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">Scenes explored</span>
+                        <span className="text-foreground font-semibold tabular-nums">
+                          {progress.scenes_seen} of {progress.scenes_total}
+                        </span>
+                      </div>
+                      <div
+                        className="bg-border h-1.5 overflow-hidden rounded-full"
+                        role="progressbar"
+                        aria-label="Scenes explored"
+                        aria-valuemin={0}
+                        aria-valuemax={progress.scenes_total}
+                        aria-valuenow={progress.scenes_seen}
+                      >
+                        <div
+                          className="bg-primary h-full rounded-full"
+                          style={{
+                            width: `${(progress.scenes_seen / Math.max(progress.scenes_total, 1)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <EndingsMeter
+                          found={progress.endings_found.length}
+                          total={progress.endings_total}
+                        />
+                        <span className="text-muted-foreground">
+                          {timeAgo(progress.last_read_at)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-muted-foreground mt-3 flex items-center justify-center gap-1.5 text-center text-xs">
                     {session ? (
-                      "Take any path — you can restart anytime."
+                      done && progress ? (
+                        progress.endings_found.length < progress.endings_total ? (
+                          "Take a different path to find another ending."
+                        ) : (
+                          "You've found every ending. Enjoy it again."
+                        )
+                      ) : (
+                        "Take any path — you can restart anytime."
+                      )
                     ) : (
                       <>
                         <Lock className="h-3 w-3" />

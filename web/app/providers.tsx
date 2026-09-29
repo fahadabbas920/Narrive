@@ -1,16 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ThemeProvider } from "next-themes"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query"
 import { Toaster } from "@/components/ui/sonner"
 import { showToast } from "@/lib/toast"
 import { addRequestInterceptor, setOnUnauthorized } from "@/lib/api/api-client"
-import { clearSession, getToken } from "@/lib/session"
+import { clearSession, getToken, useSession } from "@/lib/session"
 import { ModeTransitionProvider } from "@/components/mode-transition"
 
-const PROTECTED = /^\/(write(\/|$)|admin(\/|$)|become-a-writer|story\/[^/]+\/read)/
+const PROTECTED = /^\/(write(\/|$)|admin(\/|$)|become-a-writer|reading$|story\/[^/]+\/read)/
 
 let interceptorRegistered = false
 function registerAuthInterceptor(router: ReturnType<typeof useRouter>) {
@@ -40,6 +40,19 @@ function registerAuthInterceptor(router: ReturnType<typeof useRouter>) {
   })
 }
 
+/** Cached data belongs to one person, so drop it whenever the session ends: sign-out,
+ *  an expired token (401) or signing out in another tab. */
+function ClearCacheOnSignOut() {
+  const session = useSession()
+  const queryClient = useQueryClient()
+  const had = useRef(false)
+  useEffect(() => {
+    if (had.current && !session) queryClient.clear()
+    had.current = !!session
+  }, [session, queryClient])
+  return null
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   registerAuthInterceptor(router)
@@ -57,6 +70,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
+        <ClearCacheOnSignOut />
         <ModeTransitionProvider>{children}</ModeTransitionProvider>
         <Toaster position="top-right" />
       </QueryClientProvider>

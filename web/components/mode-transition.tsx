@@ -1,11 +1,19 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { BookOpen, Feather } from "lucide-react"
+import { BookOpen, Feather, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type AppMode = "reader" | "writer"
+export type AppMode = "reader" | "writer" | "admin"
+
+/** Which mode a path belongs to; null for sign-in pages, which never get the screen. */
+export function modeOf(pathname: string): AppMode | null {
+  if (pathname === "/login" || pathname === "/register") return null
+  if (/^\/(write|become-a-writer)(\/|$)/.test(pathname)) return "writer"
+  if (/^\/admin(\/|$)/.test(pathname)) return "admin"
+  return "reader"
+}
 
 /** Long enough to read the message, short enough not to feel slow. */
 const MIN_VISIBLE_MS = 1100
@@ -29,15 +37,38 @@ export function ModeTransitionProvider({ children }: { children: React.ReactNode
   const router = useRouter()
   const pathname = usePathname()
   const [transition, setTransition] = useState<Transition | null>(null)
+  // A ref, not state, so two clicks in the same tick can't start two transitions.
+  const busy = useRef(false)
 
   const go = useCallback(
     (href: string, mode: AppMode) => {
-      if (transition) return
-      setTransition({ mode, from: pathname, startedAt: Date.now(), phase: "in" })
+      if (busy.current) return
+      busy.current = true
+      setTransition({ mode, from: window.location.pathname, startedAt: Date.now(), phase: "in" })
       router.push(href)
     },
-    [transition, pathname, router],
+    [router],
   )
+
+  // Any in-app link that crosses modes plays the screen, so no link has to opt in. Capture
+  // phase runs before next/link's handler, and preventDefault stops its own navigation.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+        return
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return
+      const url = new URL(a.href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      const from = modeOf(window.location.pathname)
+      const to = modeOf(url.pathname)
+      if (!from || !to || from === to) return
+      e.preventDefault()
+      go(url.pathname + url.search + url.hash, to)
+    }
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
+  }, [go])
 
   // Leave once the new page has rendered (pathname changed) and the minimum time has passed.
   useEffect(() => {
@@ -52,7 +83,10 @@ export function ModeTransitionProvider({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (transition?.phase !== "out") return
-    const timer = setTimeout(() => setTransition(null), FADE_OUT_MS)
+    const timer = setTimeout(() => {
+      setTransition(null)
+      busy.current = false
+    }, FADE_OUT_MS)
     return () => clearTimeout(timer)
   }, [transition?.phase])
 
@@ -77,6 +111,16 @@ const COPY: Record<AppMode, { eyebrow: string; title: string; lines: string[] }>
       "Untangling story threads…",
     ],
   },
+  admin: {
+    eyebrow: "Admin console",
+    title: "Opening the control room",
+    lines: [
+      "Counting the readers…",
+      "Straightening the shelves…",
+      "Checking every ending…",
+      "Polishing the Originals…",
+    ],
+  },
   reader: {
     eyebrow: "Reading mode",
     title: "Heading to the library",
@@ -99,6 +143,12 @@ const THEME: Record<
     ink: "text-lavender-ink",
     dots: ["bg-lavender-ink", "bg-sky-ink", "bg-mint-ink"],
   },
+  admin: {
+    bg: "from-butter via-peach to-lavender",
+    blobs: ["bg-butter", "bg-peach", "bg-lavender"],
+    ink: "text-butter-ink",
+    dots: ["bg-butter-ink", "bg-peach-ink", "bg-lavender-ink"],
+  },
   reader: {
     bg: "from-peach via-blush to-butter",
     blobs: ["bg-peach", "bg-blush", "bg-lavender"],
@@ -110,7 +160,7 @@ const THEME: Record<
 function TransitionScreen({ mode, leaving }: { mode: AppMode; leaving: boolean }) {
   const copy = COPY[mode]
   const theme = THEME[mode]
-  const Icon = mode === "writer" ? Feather : BookOpen
+  const Icon = mode === "writer" ? Feather : mode === "admin" ? ShieldCheck : BookOpen
   const [line, setLine] = useState(0)
 
   useEffect(() => {

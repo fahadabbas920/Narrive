@@ -16,6 +16,7 @@ export function proxy(request: NextRequest) {
     isWriterPage ||
     isAdminPage ||
     pathname === "/become-a-writer" ||
+    pathname === "/reading" ||
     /^\/story\/[^/]+\/read\/?$/.test(pathname)
 
   if (!token && needsSession) {
@@ -49,6 +50,7 @@ export const config = {
     "/admin",
     "/admin/:path*",
     "/become-a-writer",
+    "/reading",
     "/story/:id/read",
     "/login",
     "/register",

@@ -8,7 +8,8 @@ import { useCreateOriginal, useOriginals, useUpdateAdminStory } from "@/hooks/us
 import type { AdminStory } from "@/lib/api/admin"
 import { showToast } from "@/lib/toast"
 import { cn } from "@/lib/utils"
-import { AdminPage, EmptyState, Skeleton, StatTile } from "@/components/admin/admin-ui"
+import { AdminPage, EmptyState, Skeleton } from "@/components/admin/admin-ui"
+import { StatTile } from "@/components/stats/stat-tile"
 import { StoryTable } from "@/components/admin/story-table"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 

@@ -1,24 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import {
-  Activity,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  LineChart,
-  Sparkles,
-} from "lucide-react"
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Sparkles } from "lucide-react"
 import { useAdminHealth, useAdminOverview } from "@/hooks/use-admin"
-import {
-  AdminPage,
-  EmptyState,
-  OriginalBadge,
-  Panel,
-  Skeleton,
-  StatTile,
-} from "@/components/admin/admin-ui"
-import { BarList, DailyColumns } from "@/components/admin/charts"
+import { AdminPage, OriginalBadge, Panel, Skeleton } from "@/components/admin/admin-ui"
+import { ReadingStatsPanel } from "@/components/stats/reading-stats-panel"
+import { StatTile } from "@/components/stats/stat-tile"
+import { BarList, DailyColumns } from "@/components/stats/charts"
 import { describeAction } from "@/components/admin/audit-text"
 import { WriterAvatar } from "@/components/writer-avatar"
 import { timeAgo } from "@/lib/time"
@@ -313,12 +301,8 @@ export default function AdminOverviewPage() {
         </Panel>
       </div>
 
-      <Panel className="mt-4">
-        <EmptyState icon={LineChart} title="Reading analytics are coming">
-          Reads, completions and popular paths need reading events recorded on the server. Reading
-          progress is only kept in each reader&apos;s browser today.
-        </EmptyState>
-      </Panel>
+      <h2 className="text-foreground mt-8 mb-3 text-lg font-extrabold tracking-tight">Reading</h2>
+      <ReadingStatsPanel scope={{ scope: "platform" }} />
     </AdminPage>
   )
 }

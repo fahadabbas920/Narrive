@@ -6,9 +6,12 @@ A text-based interactive storytelling platform. Writers create branching narrati
 
 **One account, two modes.** Every user can read. Writing is unlocked per account (`users.is_writer`) through the become-a-writer onboarding. Both modes live in a single Next.js app, and the URL decides the mode: `/write/*` is writer mode, everything else is reader mode.
 
+**Product flows** (every reader, writer and admin flow, rules, limits, user-facing messages and support answers) live in [FLOWS.md](FLOWS.md). Read it before writing support docs or help text, and update it whenever a flow, rule, limit or message changes.
+
 ## Working rules (for Claude)
 
 - **Don't run dev servers or test the UI** unless the user explicitly asks. That means no `pnpm dev`, `uvicorn`, Playwright or browser screenshots, and never stop or restart the user's running servers.
+- When a change affects what users see or can do, update [FLOWS.md](FLOWS.md) in the same change.
 - Verify changes with static checks only: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and `ruff check` for the backend. Don't run `pnpm build` either: it writes to `web/.next`, which breaks a dev server the user may have running.
 - **Don't `git commit` or push** unless the user asks for it. Leave changes in the working tree.
 
@@ -56,7 +59,8 @@ app/
 │   ├── page.tsx                  public catalogue
 │   ├── story/[id]/
 │   │   ├── page.tsx              public story detail (byline links to the writer)
-│   │   └── read/page.tsx         reading experience (needs session)
+│   │   └── read/page.tsx         reading experience (needs session; ?restart=1 starts a fresh run)
+│   ├── reading/page.tsx          My reading: a one-line summary + Continue reading / Read later / Finished (needs session)
 │   └── writers/[handle]/page.tsx public writer profile
 ├── become-a-writer/page.tsx      4-step onboarding (needs session)
 ├── admin/                        super admin console (needs session + admin_role; see ADMIN-PLAN.md)
@@ -89,8 +93,10 @@ app/
 | `components/auth/` | `auth-shell.tsx` (login/register layout), `auth-fields.tsx` (AuthInput, AuthSubmit) |
 | `components/onboarding/` | `become-writer-flow.tsx` |
 | `components/app/` | writer shell: `sidebar.tsx` (desktop `Sidebar` at lg+, `MobileSidebar` drawer below lg), navbar, `writer-gate.tsx`, `welcome-banner.tsx`, `story-form.tsx` (shared by new + edit story), `editor/` |
-| `components/admin/` | `admin-ui.tsx` (AdminPage, Panel, StatTile, badges, SearchInput, FilterChips, Pagination, DataTable), `charts.tsx` (DailyColumns, BarList — single-series, `bg-chart`), `story-table.tsx`, `admin-gate.tsx`, `audit-text.ts`, `import-template.ts`, `use-url-filters.ts` (filters kept in the URL) |
-| `lib/api/` | `api-client.ts` (interceptors), `index.ts` (`client`), `auth.ts`, `stories.ts`, `scenes.ts`, `public.ts`, `taxonomy.ts`, `admin.ts` |
+| `components/stats/` | shared by readers and admins: `stat-tile.tsx` (StatTile, formatCount), `charts.tsx` (DailyColumns, BarList — single-series, `bg-chart`), `endings-meter.tsx`, `reading-status-badge.tsx`, `reading-stats-panel.tsx` (**ReadingStatsPanel**, admin: tiles + charts for a user, story or the platform), `reading-summary.tsx` (**ReadingSummary**, readers: one friendly sentence, no dashboard) |
+| `components/reader/` | reading-page pieces plus `save-button.tsx` (Read later toggle, `icon` or `full`) and `my-reading-link.tsx` (header link with a saved-count badge) |
+| `components/admin/` | `admin-ui.tsx` (AdminPage, Panel, badges, SearchInput, FilterChips, Pagination, DataTable), `story-table.tsx`, `admin-gate.tsx`, `audit-text.ts`, `import-template.ts`, `use-url-filters.ts` (filters kept in the URL) |
+| `lib/api/` | `api-client.ts` (interceptors), `index.ts` (`client`), `auth.ts`, `stories.ts`, `scenes.ts`, `public.ts`, `taxonomy.ts`, `admin.ts`, `reading.ts` |
 | `lib/session.ts` | token storage, `setSession` / `clearSession` / `getToken`, `useSession()` hook |
 | `lib/jwt.ts` | `decodeIsWriter` / `decodeIsAdmin` (unverified claims, routing hints only), `safeNext` (open-redirect guard) |
 | `lib/routes.ts` | `ADMIN_WRITING_HOME` (where non-writer admins go instead of `/write`) |
@@ -103,7 +109,7 @@ app/
 - `"use client"` on any component that uses hooks, events, or browser APIs.
 - API calls go through `lib/api/` modules, never fetched directly in components.
 - Everything is imported via `@/` (`@/components/ui/button`, `@/lib/utils`, …).
-- **React Query keys** (one shared cache, so keep them distinct): writer `["stories"]` / `["stories", id]`; public `["public-stories"]` / `["public-story", id]`; current user `["me"]`; `["taxonomy"]`; admin `["admin", …]` (admin mutations also invalidate the public and writer keys).
+- **React Query keys** (one shared cache, so keep them distinct): writer `["stories"]` / `["stories", id]`; public `["public-stories", "list", filters]` (infinite) / `["public-stories", "featured" | "facets"]` / `["public-story", id]`; current user `["me"]`; `["taxonomy"]`; admin `["admin", …]` (admin mutations also invalidate the public and writer keys); reading `["me-library"]` (your status on every story, shared by all cards), `["reading", storyId]`, `["me-reading", status]`, `["me-saved"]`, `["reading-stats", scope]`. Signing in or out clears the whole cache, because these belong to one person.
 - **Taxonomy (genres, moods, content ratings, limits) comes from the backend.** Use `useTaxonomy()` / `useRatingLabel()` from `hooks/use-taxonomy.ts`. Never hard-code these lists in the frontend.
 - Toasts via `showToast` from `@/lib/toast`.
 - Reader pages wrap header, body and footer in `<PageContainer>` so their edges align. Back links live in the page content, not the header.
@@ -137,6 +143,7 @@ app/
   - writers jump between `/` and `/write`;
   - signed-in readers see "Become a writer";
   - signed-out users go to `/login?mode=writer`.
+- **Mode transition screen** (`components/mode-transition.tsx`): the provider listens for clicks on every in-app link. Any link whose target is in a different mode (reader / writer / admin, as decided by `modeOf(path)`) plays the loading screen before navigating, so plain `<Link>`s need nothing extra. Sign-in pages have no mode and are skipped. For programmatic navigation across modes, call `useModeTransition()(href, mode)`.
 - A **401** clears the session. It only redirects to `/login` when the user is on a protected path; public browsing silently signs out.
 
 ### Super admin (`/admin`)
@@ -149,6 +156,20 @@ app/
 - When an admin publishes, unpublishes or deletes an Original through `/stories`, the backend writes an audit entry too.
 - **Narrive Originals** are ordinary stories owned by the system account `@narrive` (`users.is_system`). Nobody can sign in as it: its password hash matches no password, and sign-in rejects system accounts.
 - **Featured:** admins can feature published stories (`is_featured`, `featured_rank`). They appear in the catalogue's Featured row, and cards show an "Original" badge.
+
+### Catalogue paging
+
+- **`All stories` loads 12 at a time** with a "Load more" button (`useInfiniteQuery`). Search (debounced), genre, mood and rating filters run on the server, and changing one restarts from page 1. The filter menus' counts come from `/public/stories/facets`.
+- **Paging uses a cursor, not page numbers:** `next_cursor` encodes the last story's `(coalesce(published_at, created_at), id)`, so new publishes never repeat or skip a card. The index `ix_stories_catalogue_order` matches the `ORDER BY`.
+- **Each loaded page is its own grid** with `content-visibility: auto`, so pages scrolled far away aren't laid out or painted. Keep the page size a multiple of 6, so every page fills whole rows at 1, 2 and 3 columns and pages stack seamlessly.
+
+### Reading progress, Read later & stats
+
+- **Progress lives on the server** (`reading_progress`, one row per reader per story). The reading page resumes from it, with `lib/reading-progress.ts` (`localStorage`) as a fast fallback. It `PUT`s after every step in the background; saves for one story run one at a time (a mutation `scope`), so they can't land out of order.
+- **Endings are only credited for a real run** (`_run_is_real` in `app/routers/reading.py`). The reader has every scene id, so a save only counts when the run began at the start scene and every step since the server last saw the reader follows a choice. Several steps in one save (after a failed save) and going back are fine. Anything else still saves the position, but sets `run_verified = false`: no endings or scenes are credited until the reader starts a fresh run.
+- **Statuses:** `in_progress` (no ending yet), `reading_again` (finished before, mid-run now), `finished`, `all_endings`. Computed by `status_of` in `app/core/reading.py`.
+- **Read later** is its own table (`saved_stories`), so saving never touches progress. The Read later tab lists saved stories not yet started; finishing never removes a story from the list.
+- **One stats shape for every scope.** `reading_stats(db, user_id=…, story_id=…)` returns `ReadingStats` for a reader, a story or the platform. Admin pages render it with `ReadingStatsPanel`. Readers only ever see `ReadingSummary`, a single sentence, because My reading shouldn't feel like a dashboard. A writer's reads of their own story count only in their personal stats. **All counting happens in Postgres** (a CTE of the rows in scope plus `count` / `group by` / `json_array_elements_text`), so only totals leave the database; keep it that way rather than loading progress rows into Python.
 
 ### Visual story editor (`components/app/editor/`)
 
@@ -175,6 +196,7 @@ app/
 | `useSignIn`, `useSignUp`, `useLogout`, `useMe`, `useBecomeWriter` | `hooks/use-auth.ts` |
 | `useTaxonomy`, `useRatingLabel` | `hooks/use-taxonomy.ts` |
 | `usePublicWriter`, `useUpdateProfile`, `useHandleAvailability` | `hooks/use-profile.ts` |
+| `useLibrary`, `useLibraryEntry`, `useToggleSaved`, `useStoryProgress`, `useSaveProgress`, `useReadingList`, `useSavedList`, `useReadingStats` | `hooks/use-reading.ts` |
 | `useStories`, `useStory`, `useCreateStory`, `useUpdateStory`, `useDeleteStory`, `usePublishStory` | `hooks/use-stories.ts` |
 | `useCreateScene`, `useUpdateScene`, `useDeleteScene`, `useCreateChoice`, `useUpdateChoice`, `useDeleteChoice`, `useSaveLayout` | `hooks/use-story-editor.ts` |
 
@@ -202,11 +224,14 @@ backend/
 │   │   ├── originals.py     get_house_account (the @narrive system user)
 │   │   ├── story_graph.py   analyze + tidy_layout (Python ports of the editor's graph helpers)
 │   │   ├── importer.py      validate_import / commit_import for bulk JSON
+│   │   ├── catalogue.py     visible_stories, story_list, author_details (what readers can see)
+│   │   ├── reading.py       status_of, library, reading_stats (one shape for user / story / platform)
 │   │   └── taxonomy.py      GENRES, MOODS, CONTENT_RATINGS, limits + clean_* validators (single source of truth)
 │   ├── models/
 │   │   ├── user.py          User table (incl. writer profile fields)
 │   │   ├── story.py         Story, Scene, Choice tables + StoryStatus/SceneType enums
-│   │   └── admin.py         AdminAction (audit log), StoryImport
+│   │   ├── admin.py         AdminAction (audit log), StoryImport
+│   │   └── reading.py       ReadingProgress, SavedStory
 │   ├── schemas/
 │   │   ├── auth.py          UserCreate, UserRead, Token, BecomeWriter, WriterUpgrade
 │   │   └── story.py         StoryCreate/Read/Update/Detail, SceneCreate/Read/Update, ChoiceCreate/Read/Update
@@ -216,7 +241,8 @@ backend/
 │       ├── stories.py       Full CRUD for stories, scenes, choices (writers only)
 │       ├── taxonomy.py      GET /taxonomy (public, Cache-Control: no-cache)
 │       ├── public.py        Published stories, no auth
-│       └── admin.py         /admin/* (super admin only; every change writes an AdminAction)
+│       ├── admin.py         /admin/* (super admin only; every change writes an AdminAction)
+│       └── reading.py       /me/reading, /me/saved, /me/library (the signed-in reader's own data)
 │   └── scripts/             make_admin.py (grant/revoke super admin), create_user.py (new account, --admin)
 └── alembic/                 Migrations (env.py imports all models)
 ```
@@ -233,6 +259,10 @@ Story        id, author_id→User, title, description, cover_image, genres(JSON)
              published_at, is_featured, featured_rank, import_id→StoryImport
 AdminAction  id, actor_id→User, action, target_type, target_id, details(JSON), created_at
 StoryImport  id, actor_id→User, story_count, scene_count, created_at
+ReadingProgress id, user_id→User, story_id→Story (unique pair, cascade), current_scene_id, history(JSON),
+             scenes_seen(JSON), endings_found(JSON), runs_finished, run_finished, run_verified,
+             started_at, last_read_at, first_finished_at
+SavedStory   (user_id, story_id) primary key, created_at
 Scene        id, story_id→Story, title, content(Text), scene_type(start|middle|ending), position_x, position_y
 Choice       id, story_id→Story, from_scene_id→Scene, to_scene_id→Scene, text, display_order
 ```
@@ -265,9 +295,20 @@ DELETE /api/v1/stories/{id}/choices/{cid}
 
 GET    /api/v1/taxonomy                      → {genres, moods, content_ratings, limits} (no auth)
 
-GET    /api/v1/public/stories                → published stories incl. author_name (no auth)
+GET    /api/v1/public/stories                ?q&genre*&mood*&rating*&limit(≤48, default 12)&cursor → {items, total, next_cursor}
+                                             newest first, keyset-paged; ?featured=true&limit=6 for the Featured row
+GET    /api/v1/public/stories/facets         → {total, genres, moods, ratings} counts for the filter menus
 GET    /api/v1/public/stories/{id}
 GET    /api/v1/public/writers/{handle}       → public profile + stats + published stories
+
+# the signed-in reader's own data
+PUT    /api/v1/me/reading/{story_id}         {scene_id, history} → progress
+GET    /api/v1/me/reading/{story_id}         → progress | 404 (not started)
+DELETE /api/v1/me/reading/{story_id}         → start over (endings found are kept)
+GET    /api/v1/me/reading?status=reading|finished
+GET    /api/v1/me/reading/stats              → ReadingStats (user)
+GET    /api/v1/me/saved                      PUT / DELETE /api/v1/me/saved/{story_id}
+GET    /api/v1/me/library                    → {story_id: {status, endings_found, endings_total, saved, last_read_at}}
 
 # super admin only (get_current_admin)
 GET    /api/v1/admin/overview                → cards, 30-day growth, funnel, top writers, genres/moods, recent
@@ -284,6 +325,8 @@ GET    /api/v1/admin/originals               POST /api/v1/admin/originals (Story
 POST   /api/v1/admin/imports/validate        → ImportReport (writes nothing)
 POST   /api/v1/admin/imports                 → creates everything in one transaction, or 422 + report
 GET    /api/v1/admin/imports                 DELETE /api/v1/admin/imports/{id}?force= (undo)
+GET    /api/v1/admin/reading-stats           ?days → ReadingStats (platform)
+GET    /api/v1/admin/users/{id}/reading-stats, /api/v1/admin/stories/{id}/reading-stats
 GET    /api/v1/admin/audit                   ?action (exact or "story." prefix)&target_id&actor&since&page
 ```
 
@@ -351,13 +394,13 @@ GET    /api/v1/admin/audit                   ?action (exact or "story." prefix)&
 
 - **2026-09-28:** the account-modes / single-app / pastel redesign, specified in [REDESIGN-PLAN.md](REDESIGN-PLAN.md). The frontend was also flattened from a Turborepo monorepo into one plain Next.js app.
 - **2026-09-29:** the super admin console, Narrive Originals and bulk import, specified in [ADMIN-PLAN.md](ADMIN-PLAN.md).
+- **2026-09-29:** reading progress on the server, Read later and reading stats, specified in [READING-STATS-PLAN.md](READING-STATS-PLAN.md).
 
 ---
 
 ## Phase 2 (not yet built)
 
-- **Reader experience**: reading progress saved per user
-- **Story analytics**: view counts, completion rates, popular choice paths. This needs server-side reading events; the admin overview has an empty spot waiting for them.
+- **Story analytics for writers**: the same `ReadingStatsPanel` (story scope) on the writer's own story page; popular choice paths would need a per-step event log.
 - **Author profiles**: follows, avatar photo uploads (needs file storage)
-- **Bookmarks + sharing**: save reading sessions, share completed endings
+- **Sharing**: share a finished ending
 - **Password reset**: not implemented; the login card has no "Forgot?" link yet

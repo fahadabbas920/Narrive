@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  BookMarked,
   BookOpen,
   ChevronDown,
   LogOut,
@@ -22,7 +23,6 @@ import {
 import { useLogout, useMe } from "@/hooks/use-auth"
 import { useIsWriter } from "@/components/mode-switch"
 import { useSession } from "@/lib/session"
-import { useModeTransition, type AppMode } from "@/components/mode-transition"
 
 export function AccountMenu() {
   const session = useSession()
@@ -30,19 +30,6 @@ export function AccountMenu() {
   const isWriter = useIsWriter()
   const logout = useLogout()
   const pathname = usePathname()
-  const switchMode = useModeTransition()
-  const writing = pathname === "/write" || pathname.startsWith("/write/")
-
-  function modeLink(href: string, target: AppMode) {
-    return {
-      render: <Link href={href} />,
-      onClick: (e: React.MouseEvent) => {
-        if ((target === "writer") === writing || e.metaKey || e.ctrlKey || e.shiftKey) return
-        e.preventDefault()
-        switchMode(href, target)
-      },
-    }
-  }
 
   if (!session) {
     const next = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`
@@ -119,17 +106,21 @@ export function AccountMenu() {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuLinkItem {...modeLink("/", "reader")}>
+        <DropdownMenuLinkItem render={<Link href="/" />}>
           <BookOpen />
           Browse stories
         </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem render={<Link href="/reading" />}>
+          <BookMarked />
+          My reading
+        </DropdownMenuLinkItem>
         {isWriter === false ? (
-          <DropdownMenuLinkItem {...modeLink("/become-a-writer", "writer")}>
+          <DropdownMenuLinkItem render={<Link href="/become-a-writer" />}>
             <Sparkles />
             Become a writer
           </DropdownMenuLinkItem>
         ) : (
-          <DropdownMenuLinkItem {...modeLink("/write/stories", "writer")}>
+          <DropdownMenuLinkItem render={<Link href="/write/stories" />}>
             <PenLine />
             Writing desk
           </DropdownMenuLinkItem>
