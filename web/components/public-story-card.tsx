@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, GitBranch } from "lucide-react"
+import { ArrowRight, GitBranch, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PublicStory } from "@/lib/api/public"
 import { storyTone } from "@/lib/story-tone"
@@ -36,7 +36,15 @@ export function PublicStoryCard({
           <ArrowRight className="text-muted-foreground group-hover:text-primary mt-1 h-4 w-4 shrink-0 transition-all group-hover:translate-x-0.5" />
         </div>
         {showAuthor && story.author_name && (
-          <p className="text-muted-foreground -mt-1 text-xs font-medium">by {story.author_name}</p>
+          <p className="text-muted-foreground -mt-1 flex items-center gap-1.5 text-xs font-medium">
+            by {story.author_name}
+            {story.is_official && (
+              <span className="bg-peach text-peach-ink inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-bold">
+                <Sparkles className="h-2.5 w-2.5" aria-hidden />
+                Original
+              </span>
+            )}
+          </p>
         )}
         <p className="text-muted-foreground line-clamp-2 flex-1 text-sm leading-relaxed">
           {story.description || "No description yet."}

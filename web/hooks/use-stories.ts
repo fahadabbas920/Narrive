@@ -52,7 +52,7 @@ export function useUpdateStory(id: string) {
   })
 }
 
-export function useDeleteStory() {
+export function useDeleteStory(redirectTo = "/write/stories") {
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -60,8 +60,10 @@ export function useDeleteStory() {
     mutationFn: (id: string) => storiesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stories"] })
+      queryClient.invalidateQueries({ queryKey: ["admin"] })
+      queryClient.invalidateQueries({ queryKey: ["public-stories"] })
       showToast.success("Story deleted")
-      router.push("/write/stories")
+      router.push(redirectTo)
     },
     onError: (error: { detail?: string }) => {
       showToast.error(error.detail ?? "Failed to delete story")

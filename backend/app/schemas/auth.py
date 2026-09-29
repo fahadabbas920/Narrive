@@ -35,6 +35,7 @@ class UserRead(BaseModel):
     social_links: list[SocialLink] = []
     avatar_tone: str = "lavender"
     cover_tone: str = "lavender"
+    admin_role: str | None = None
     created_at: datetime
     updated_at: datetime
 

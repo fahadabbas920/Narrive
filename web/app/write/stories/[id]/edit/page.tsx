@@ -4,6 +4,7 @@ import { use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { StoryForm } from "@/components/app/story-form"
+import { useStoryWorkspace } from "@/components/app/story-workspace"
 import { useStory, useUpdateStory } from "@/hooks/use-stories"
 import type { CreateStoryFormData } from "@/lib/schemas/story"
 import { showToast } from "@/lib/toast"
@@ -11,6 +12,7 @@ import { showToast } from "@/lib/toast"
 export default function EditStorySettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const ws = useStoryWorkspace()
   const { data: story, isLoading } = useStory(id)
   const { mutate: updateStory, isPending } = useUpdateStory(id)
 
@@ -27,7 +29,7 @@ export default function EditStorySettingsPage({ params }: { params: Promise<{ id
       {
         onSuccess: () => {
           showToast.success("Story updated")
-          router.push(`/write/stories/${id}`)
+          router.push(ws.storyPath(id))
         },
       },
     )
@@ -49,8 +51,8 @@ export default function EditStorySettingsPage({ params }: { params: Promise<{ id
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="text-foreground font-semibold">Story not found</p>
-        <Link href="/write/stories" className="text-primary text-sm font-semibold hover:underline">
-          Back to my stories
+        <Link href={ws.root} className="text-primary text-sm font-semibold hover:underline">
+          Back to {ws.backLabel.toLowerCase()}
         </Link>
       </div>
     )
@@ -59,7 +61,7 @@ export default function EditStorySettingsPage({ params }: { params: Promise<{ id
   return (
     <StoryForm
       kind="edit"
-      backHref={`/write/stories/${id}`}
+      backHref={ws.storyPath(id)}
       backLabel={story.title}
       storyId={story.id}
       defaultValues={{

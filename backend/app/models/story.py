@@ -36,6 +36,11 @@ class Story(SQLModel, table=True):
     content_rating: str | None = Field(default=None, max_length=20)
     tags: list[str] = Field(default=[], sa_column=Column(JSON))
     status: StoryStatus = Field(default=StoryStatus.draft)
+    # First time the story went live; unpublishing keeps it.
+    published_at: datetime | None = Field(default=None)
+    is_featured: bool = Field(default=False, nullable=False)
+    featured_rank: int | None = Field(default=None)
+    import_id: UUID | None = Field(default=None, foreign_key="imports.id", index=True)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

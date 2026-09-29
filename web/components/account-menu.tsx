@@ -2,7 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, ChevronDown, LogOut, PenLine, Sparkles, UserRound } from "lucide-react"
+import {
+  BookOpen,
+  ChevronDown,
+  LogOut,
+  PenLine,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+} from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,8 +73,17 @@ export function AccountMenu() {
         aria-label="Account menu"
         className="hover:bg-muted data-popup-open:bg-muted focus-visible:ring-ring/50 flex cursor-pointer items-center gap-1.5 rounded-full p-1 pr-2 transition-colors outline-none focus-visible:ring-3"
       >
-        <span className="from-peach via-blush to-lavender text-lavender-ink flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br text-sm font-bold">
+        <span className="from-peach via-blush to-lavender text-lavender-ink relative flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br text-sm font-bold">
           {initial}
+          {me?.admin_role && (
+            <span
+              title="Super admin"
+              className="bg-butter text-butter-ink ring-card absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full ring-2"
+            >
+              <ShieldCheck className="h-2.5 w-2.5" aria-hidden />
+              <span className="sr-only">Super admin</span>
+            </span>
+          )}
         </span>
         <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
       </DropdownMenuTrigger>
@@ -93,6 +110,11 @@ export function AccountMenu() {
           >
             {isWriter ? "Reader · Writer" : "Reader"}
           </span>
+          {me?.admin_role && (
+            <span className="bg-butter text-butter-ink ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold">
+              Super admin
+            </span>
+          )}
         </div>
 
         <DropdownMenuSeparator />
@@ -117,6 +139,16 @@ export function AccountMenu() {
             <UserRound />
             Your public profile
           </DropdownMenuLinkItem>
+        )}
+
+        {me?.admin_role && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLinkItem render={<Link href="/admin" />}>
+              <ShieldCheck />
+              Admin console
+            </DropdownMenuLinkItem>
+          </>
         )}
 
         <DropdownMenuSeparator />

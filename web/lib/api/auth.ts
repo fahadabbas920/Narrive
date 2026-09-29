@@ -21,6 +21,8 @@ export interface UserRead {
   social_links: SocialLink[]
   avatar_tone: string
   cover_tone: string
+  /** "superadmin" or null */
+  admin_role: string | null
   created_at: string
   updated_at: string
 }

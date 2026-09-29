@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { decodeIsWriter } from "@/lib/jwt"
+import { decodeIsAdmin, decodeIsWriter } from "@/lib/jwt"
+import { ADMIN_WRITING_HOME } from "@/lib/routes"
 
-// Reader pages are public; reading a story, onboarding and writer mode need a session.
-// Writer access is re-checked client-side (/auth/me) and enforced by the API.
+// Reader pages are public; reading a story, onboarding, writer mode and admin need a session.
+// Writer/admin access is re-checked client-side (/auth/me) and enforced by the API.
 export function proxy(request: NextRequest) {
   const token = request.cookies.get("token")?.value
   const { pathname, search } = request.nextUrl
 
   const isAuthPage = pathname === "/login" || pathname === "/register"
   const isWriterPage = pathname === "/write" || pathname.startsWith("/write/")
+  const isAdminPage = pathname === "/admin" || pathname.startsWith("/admin/")
   const needsSession =
-    isWriterPage || pathname === "/become-a-writer" || /^\/story\/[^/]+\/read\/?$/.test(pathname)
+    isWriterPage ||
+    isAdminPage ||
+    pathname === "/become-a-writer" ||
+    /^\/story\/[^/]+\/read\/?$/.test(pathname)
 
   if (!token && needsSession) {
     const url = new URL("/login", request.url)
@@ -21,12 +26,17 @@ export function proxy(request: NextRequest) {
   }
 
   if (token && isAuthPage) {
-    return NextResponse.redirect(new URL("/", request.url))
+    return NextResponse.redirect(new URL(decodeIsAdmin(token) ? "/admin" : "/", request.url))
   }
 
+  // /admin only needs a session here: a token issued before the role was granted has no
+  // is_admin claim, so AdminGate checks the live role (and the API enforces it).
+
   // Only a definite `false` claim redirects; legacy tokens without the claim fall through.
+  // The writing desk is for writers; admins edit Originals under /admin/originals instead.
   if (token && isWriterPage && decodeIsWriter(token) === false) {
-    return NextResponse.redirect(new URL("/become-a-writer", request.url))
+    const home = decodeIsAdmin(token) ? ADMIN_WRITING_HOME : "/become-a-writer"
+    return NextResponse.redirect(new URL(home, request.url))
   }
 
   return NextResponse.next()
@@ -36,6 +46,8 @@ export const config = {
   matcher: [
     "/write",
     "/write/:path*",
+    "/admin",
+    "/admin/:path*",
     "/become-a-writer",
     "/story/:id/read",
     "/login",

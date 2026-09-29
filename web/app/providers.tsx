@@ -10,7 +10,7 @@ import { addRequestInterceptor, setOnUnauthorized } from "@/lib/api/api-client"
 import { clearSession, getToken } from "@/lib/session"
 import { ModeTransitionProvider } from "@/components/mode-transition"
 
-const PROTECTED = /^\/(write(\/|$)|become-a-writer|story\/[^/]+\/read)/
+const PROTECTED = /^\/(write(\/|$)|admin(\/|$)|become-a-writer|story\/[^/]+\/read)/
 
 let interceptorRegistered = false
 function registerAuthInterceptor(router: ReturnType<typeof useRouter>) {

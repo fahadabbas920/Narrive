@@ -72,6 +72,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-chart: var(--chart);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -112,6 +113,8 @@
   --popover: #ffffff;
   --popover-foreground: #2e2a3b;
   --primary: #6a57b8;
+  /* Single-series chart marks; each mode's value passes the dataviz palette checks on --card. */
+  --chart: #6a57b8;
   --primary-foreground: #ffffff;
   --secondary: #ece6fb;
   --secondary-foreground: #3f3368;
@@ -148,6 +151,7 @@
   --popover: #25202f;
   --popover-foreground: #ece8f5;
   --primary: #c4b6f6;
+  --chart: #9580ea;
   --primary-foreground: #1f1934;
   --secondary: #332c44;
   --secondary-foreground: #ece8f5;

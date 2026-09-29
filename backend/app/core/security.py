@@ -24,15 +24,25 @@ def create_access_token(
     expires_delta: timedelta | None = None,
     *,
     is_writer: bool = False,
+    is_admin: bool = False,
 ) -> str:
     expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    # is_writer is a routing hint for the frontend proxy only; the API re-checks the DB.
+    # is_writer / is_admin are routing hints for the frontend proxy only; the API re-checks the DB.
+    claims: dict[str, Any] = {"sub": str(subject), "exp": expire, "is_writer": is_writer}
+    if is_admin:
+        claims["is_admin"] = True
     return jwt.encode(
-        {"sub": str(subject), "exp": expire, "is_writer": is_writer},
+        claims,
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
+    )
+
+
+def token_for(user: Any) -> str:
+    return create_access_token(
+        subject=str(user.id), is_writer=user.is_writer, is_admin=bool(user.admin_role)
     )
 
 

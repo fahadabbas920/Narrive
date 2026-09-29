@@ -12,6 +12,9 @@ export interface Story {
   content_rating: string | null
   tags: string[]
   status: StoryStatus
+  published_at: string | null
+  is_featured: boolean
+  featured_rank: number | null
   scene_count: number
   author_id: string
   created_at: string

@@ -6,6 +6,8 @@ interface PublicAuthor {
   author_name: string | null
   author_handle: string | null
   author_tone: string | null
+  /** A Narrive Original, owned by the Narrive house account */
+  is_official: boolean
 }
 
 export type PublicStory = Story & PublicAuthor

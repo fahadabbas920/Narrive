@@ -31,6 +31,7 @@ import { validateStory } from "@/lib/validate-story"
 import { cn } from "@/lib/utils"
 import { DeleteStoryDialog } from "@/components/app/delete-story-dialog"
 import { StoryActionsMenu } from "@/components/app/story-actions-menu"
+import { useStoryWorkspace } from "@/components/app/story-workspace"
 
 const SCENE_TYPE = {
   start: { label: "Start", tone: "bg-mint text-mint-ink", icon: Play },
@@ -42,7 +43,9 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
   const { id } = use(params)
   const { data: story, isLoading } = useStory(id)
   const { mutate: setPublished, isPending: isPublishing } = usePublishStory(id)
-  const { mutate: deleteStory, isPending: isDeleting } = useDeleteStory()
+  const ws = useStoryWorkspace()
+  const base = ws.storyPath(id)
+  const { mutate: deleteStory, isPending: isDeleting } = useDeleteStory(ws.root)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const contentRatingLabel = useRatingLabel()
 
@@ -62,8 +65,8 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="text-foreground font-bold">Story not found</p>
-        <Link href="/write/stories" className="text-primary text-sm font-semibold hover:underline">
-          Back to my stories
+        <Link href={ws.root} className="text-primary text-sm font-semibold hover:underline">
+          Back to {ws.backLabel.toLowerCase()}
         </Link>
       </div>
     )
@@ -90,11 +93,11 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
     <div className="flex-1 px-4 pt-6 pb-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <Link
-          href="/write/stories"
+          href={ws.root}
           className="text-muted-foreground hover:text-foreground hover:bg-muted -ml-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          My stories
+          {ws.backLabel}
         </Link>
 
         {/* Cover */}
@@ -160,7 +163,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
 
             <div className="flex shrink-0 items-center gap-2">
               <Link
-                href={`/write/stories/${id}/canvas`}
+                href={`${base}/canvas`}
                 className="bg-card text-foreground group inline-flex items-center gap-2.5 rounded-full py-2 pr-2 pl-5 text-sm font-bold shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <GitBranch className="text-lavender-ink h-4 w-4" />
@@ -170,7 +173,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
                 </span>
               </Link>
               <Link
-                href={`/write/stories/${id}/edit`}
+                href={`${base}/edit`}
                 aria-label="Edit details"
                 title="Edit details"
                 className="bg-card/80 text-foreground hover:bg-card flex h-12 w-12 items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-colors"
@@ -218,7 +221,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-foreground font-bold">About this story</h2>
                 <Link
-                  href={`/write/stories/${id}/edit`}
+                  href={`${base}/edit`}
                   className="text-primary text-sm font-semibold hover:underline"
                 >
                   Edit
@@ -247,7 +250,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-foreground font-bold">Scenes</h2>
                 <Link
-                  href={`/write/stories/${id}/canvas`}
+                  href={`${base}/canvas`}
                   className="text-primary inline-flex items-center gap-1 text-sm font-semibold hover:underline"
                 >
                   Edit on canvas
@@ -322,9 +325,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
                       {isPublished ? "Live in the catalogue" : "Draft"}
                     </p>
                     <p className="text-foreground/70 text-xs">
-                      {isPublished
-                        ? "Readers can find and play this story."
-                        : "Only you can see this story."}
+                      {isPublished ? "Readers can find and play this story." : ws.draftHint}
                     </p>
                   </div>
                 </div>

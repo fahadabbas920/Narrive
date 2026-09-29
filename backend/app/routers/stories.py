@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.core.database import get_session
-from app.core.deps import get_current_writer_id
-from app.models.story import Choice, Scene, Story
+from app.core.deps import get_current_editor, get_current_writer_id, is_admin
+from app.models.admin import AdminAction
+from app.models.story import Choice, Scene, Story, StoryStatus
+from app.models.user import User
 from app.schemas.story import (
     ChoiceCreate,
     ChoiceRead,
@@ -30,13 +32,18 @@ def _story_read(story: Story) -> StoryRead:
     )
 
 
-def _get_story_owned(story_id: UUID, user_id: str, db: Session) -> Story:
+def _get_story_editable(story_id: UUID, user: User, db: Session) -> Story:
+    """The owner (a writer) can edit their story; a super admin can edit Narrive Originals."""
     story = db.get(Story, story_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    if str(story.author_id) != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return story
+    if story.author_id == user.id and user.is_writer:
+        return story
+    if is_admin(user):
+        author = db.get(User, story.author_id)
+        if author and author.is_system:
+            return story
+    raise HTTPException(status_code=403, detail="Not authorized")
 
 
 def _check_choice_link(story_id: UUID, from_id: UUID, to_id: UUID, db: Session) -> None:
@@ -47,6 +54,27 @@ def _check_choice_link(story_id: UUID, from_id: UUID, to_id: UUID, db: Session) 
         scene = db.get(Scene, scene_id)
         if not scene or scene.story_id != story_id:
             raise HTTPException(status_code=422, detail="Scene not found in this story")
+
+
+_STATUS_ACTIONS = {
+    StoryStatus.published: "story.publish",
+    StoryStatus.draft: "story.unpublish",
+    StoryStatus.archived: "story.archive",
+}
+
+
+def _audit_original(db: Session, user: User, story: Story, action: str, **details) -> None:
+    """Logs admin changes to Originals made via these routes; writers' own edits aren't logged."""
+    if story.author_id != user.id:
+        db.add(
+            AdminAction(
+                actor_id=user.id,
+                action=action,
+                target_type="story",
+                target_id=str(story.id),
+                details={"title": story.title, **details},
+            )
+        )
 
 
 # ── Stories ─────────────────────────────────────────────────────────────────
@@ -78,9 +106,9 @@ def create_story(
 def get_story(
     story_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    story = _get_story_owned(story_id, user_id, db)
+    story = _get_story_editable(story_id, user, db)
     scenes = db.exec(select(Scene).where(Scene.story_id == story_id)).all()
     choices = db.exec(select(Choice).where(Choice.story_id == story_id)).all()
     return StoryDetail(
@@ -96,13 +124,18 @@ def update_story(
     story_id: UUID,
     data: StoryUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    story = _get_story_owned(story_id, user_id, db)
+    story = _get_story_editable(story_id, user, db)
     updates = data.model_dump(exclude_unset=True)
+    new_status = updates.get("status")
+    if new_status and new_status != story.status:
+        _audit_original(db, user, story, _STATUS_ACTIONS[new_status], previous=str(story.status))
     for key, value in updates.items():
         setattr(story, key, value)
     story.updated_at = datetime.now(UTC)
+    if story.status == StoryStatus.published and story.published_at is None:
+        story.published_at = story.updated_at
     db.add(story)
     db.commit()
     db.refresh(story)
@@ -113,9 +146,10 @@ def update_story(
 def delete_story(
     story_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    story = _get_story_owned(story_id, user_id, db)
+    story = _get_story_editable(story_id, user, db)
+    _audit_original(db, user, story, "story.delete", author="narrive")
     db.delete(story)
     db.commit()
 
@@ -128,9 +162,9 @@ def create_scene(
     story_id: UUID,
     data: SceneCreate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     scene = Scene(**data.model_dump(), story_id=story_id)
     db.add(scene)
     db.commit()
@@ -144,9 +178,9 @@ def update_scene(
     scene_id: UUID,
     data: SceneUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     scene = db.get(Scene, scene_id)
     if not scene or scene.story_id != story_id:
         raise HTTPException(status_code=404, detail="Scene not found")
@@ -165,9 +199,9 @@ def delete_scene(
     story_id: UUID,
     scene_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     scene = db.get(Scene, scene_id)
     if not scene or scene.story_id != story_id:
         raise HTTPException(status_code=404, detail="Scene not found")
@@ -189,9 +223,9 @@ def create_choice(
     story_id: UUID,
     data: ChoiceCreate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     _check_choice_link(story_id, data.from_scene_id, data.to_scene_id, db)
     choice = Choice(**data.model_dump(), story_id=story_id)
     db.add(choice)
@@ -206,9 +240,9 @@ def update_choice(
     choice_id: UUID,
     data: ChoiceUpdate,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     choice = db.get(Choice, choice_id)
     if not choice or choice.story_id != story_id:
         raise HTTPException(status_code=404, detail="Choice not found")
@@ -234,9 +268,9 @@ def delete_choice(
     story_id: UUID,
     choice_id: UUID,
     db: Session = Depends(get_session),
-    user_id: str = Depends(get_current_writer_id),
+    user: User = Depends(get_current_editor),
 ):
-    _get_story_owned(story_id, user_id, db)
+    _get_story_editable(story_id, user, db)
     choice = db.get(Choice, choice_id)
     if not choice or choice.story_id != story_id:
         raise HTTPException(status_code=404, detail="Choice not found")

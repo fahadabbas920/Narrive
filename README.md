@@ -6,6 +6,14 @@ A text-based interactive storytelling platform where writers create branching na
 
 One account works in two modes. Everyone can **read**. **Writing** is unlocked through a short "Become a writer" onboarding, and a Reading | Writing switch in the header moves between the two.
 
+**Super admins** also get an **Admin** tab and the admin console at `/admin`:
+- a platform overview;
+- user and story moderation;
+- **Narrive Originals**, the stories Narrive publishes itself;
+- featured stories;
+- bulk JSON import, including a copyable prompt for writing stories with AI;
+- an audit log.
+
 Stories are structured as decision trees. At key moments, readers select from multiple options leading to different scenes, storylines, and endings. The experience is entirely text-based — no graphics, no game mechanics, just writing.
 
 ```
@@ -43,14 +51,21 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-Tables are created automatically on first startup. API docs at `http://localhost:8000/docs`.
+API docs are at `http://localhost:8000/docs`. Always run `alembic upgrade head` after pulling: startup creates missing tables but never adds new columns.
+
+To create accounts or grant super admin from the command line:
+
+```bash
+python -m app.scripts.create_user you@example.com --admin   # new account; password asked at a hidden prompt
+python -m app.scripts.make_admin you@example.com            # make an existing account super admin (--revoke to undo)
+```
 
 ### 3. Web app
 
 ```bash
 cd web
 pnpm install
-pnpm dev          # http://localhost:3000 (reader) and /write (writer)
+pnpm dev          # http://localhost:3000 (reader), /write (writer), /admin (super admin)
 ```
 
 ## Development
@@ -98,6 +113,7 @@ web/
 ├── app/(reader)/          public catalogue, story detail, reading experience
 ├── app/become-a-writer/   4-step writer onboarding
 ├── app/write/             writer mode: stories list, new/edit story, overview, canvas editor
+├── app/admin/             super admin console: overview, users, stories, originals, import, audit
 ├── components/ui/         shadcn primitives + composites
 ├── components/            headers, mode switch, auth screens, onboarding, editor
 ├── hooks/                 React Query queries and mutations
@@ -107,11 +123,13 @@ web/
 
 backend/
 ├── app/
-│   ├── core/            config, database, JWT security
-│   ├── models/          User, Story, Scene, Choice (SQLModel)
-│   ├── schemas/         Pydantic request/response schemas
-│   └── routers/         auth, users (become-writer), stories (scenes + choices nested), public
-└── alembic/             database migrations
+│   ├── core/            config, database, JWT security, taxonomy, story graph checks, importer
+│   ├── models/          User, Story, Scene, Choice, AdminAction, StoryImport (SQLModel)
+│   ├── schemas/         Pydantic request/response schemas (incl. the bulk-import format)
+│   ├── routers/         auth, users, stories (scenes + choices nested), public, taxonomy, admin
+│   └── scripts/         create_user, make_admin
+└── index.py             Vercel entry point
+├── alembic/             database migrations
 ```
 
 ## API
@@ -121,6 +139,8 @@ POST /api/v1/auth/signup
 POST /api/v1/auth/signin
 GET  /api/v1/auth/me
 POST /api/v1/users/me/become-writer
+PATCH /api/v1/users/me/profile
+GET  /api/v1/users/handle-available?handle=
 
 # writers only (403 otherwise)
 
@@ -139,8 +159,13 @@ PATCH  /api/v1/stories/{id}/choices/{choice_id}
 DELETE /api/v1/stories/{id}/choices/{choice_id}
 
 # public, no auth
+GET    /api/v1/taxonomy
 GET    /api/v1/public/stories
 GET    /api/v1/public/stories/{id}
+GET    /api/v1/public/writers/{handle}
+
+# super admins only (403 otherwise) — full list in CLAUDE.md
+/api/v1/admin/overview, /users, /stories, /originals, /imports, /audit
 ```
 
 ## Environment Variables
@@ -157,3 +182,23 @@ BACKEND_CORS_ORIGINS=http://localhost:3000
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
+## Deployment (Vercel + Neon)
+
+| Project | Root directory | URL |
+|---|---|---|
+| `narrive` (Next.js) | `web` | https://narrive-eight.vercel.app |
+| `narrive-api` (FastAPI) | `backend` | https://narrive-api.vercel.app |
+
+- Both deploy automatically on every push to `main`.
+- The database is Neon Postgres, connected to `narrive-api`.
+- **Migrations aren't run by Vercel.** Before pushing a schema change, run them from your machine against Neon's unpooled URL:
+
+```bash
+cd backend && source .venv/bin/activate
+SQLALCHEMY_DATABASE_URI="<DATABASE_URL_UNPOOLED>" alembic upgrade head
+```
+
+Environment variables:
+- **Backend:** `SQLALCHEMY_DATABASE_URI` (Neon pooled URL), `SECRET_KEY`, `BACKEND_CORS_ORIGINS`.
+- **Frontend:** `NEXT_PUBLIC_API_URL`. It's baked in at build time, so redeploy after changing it.

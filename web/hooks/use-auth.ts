@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { authApi, type BecomeWriterPayload } from "@/lib/api/auth"
-import { decodeIsWriter, safeNext } from "@/lib/jwt"
+import { decodeIsAdmin, decodeIsWriter, safeNext } from "@/lib/jwt"
 import { clearSession, setSession, useSession } from "@/lib/session"
 import { showToast } from "@/lib/toast"
 import type { LoginFormData, RegisterFormData } from "@/lib/schemas/auth"
@@ -16,6 +16,8 @@ interface AuthOptions {
 }
 
 function destinationAfterSignIn(token: string, { mode, next }: AuthOptions): string {
+  // Super admins always land in the admin console, whatever mode or `next` they came with.
+  if (decodeIsAdmin(token)) return "/admin"
   const target = safeNext(next)
   if (target) return target
   if (mode === "writer") return decodeIsWriter(token) ? "/write" : "/become-a-writer"

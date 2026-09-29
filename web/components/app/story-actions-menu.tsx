@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { Story } from "@/lib/api/stories"
 import { cn } from "@/lib/utils"
+import { useStoryWorkspace } from "@/components/app/story-workspace"
 
 export function StoryActionsMenu({
   story,
@@ -24,7 +25,7 @@ export function StoryActionsMenu({
   showOverview?: boolean
   triggerClassName?: string
 }) {
-  const base = `/write/stories/${story.id}`
+  const base = useStoryWorkspace().storyPath(story.id)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

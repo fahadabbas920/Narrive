@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, PenLine, Sparkles } from "lucide-react"
+import { BookOpen, PenLine, ShieldCheck, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useMe } from "@/hooks/use-auth"
 import { useSession } from "@/lib/session"
@@ -19,6 +19,9 @@ export function ModeSwitch({ className }: { className?: string }) {
   const pathname = usePathname()
   const session = useSession()
   const isWriter = useIsWriter()
+  const { data: me } = useMe()
+  const isAdmin = !!session && !!me?.admin_role
+  const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/")
   const writing = pathname === "/write" || pathname.startsWith("/write/")
 
   const writeHref = !session
@@ -30,7 +33,7 @@ export function ModeSwitch({ className }: { className?: string }) {
   const switchMode = useModeTransition()
 
   function onSwitch(e: React.MouseEvent<HTMLAnchorElement>, href: string, target: AppMode) {
-    const alreadyThere = (target === "writer") === writing
+    const alreadyThere = !inAdmin && (target === "writer") === writing
     if (alreadyThere || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
     e.preventDefault()
     switchMode(href, target)
@@ -47,10 +50,10 @@ export function ModeSwitch({ className }: { className?: string }) {
       <Link
         href="/"
         onClick={(e) => onSwitch(e, "/", "reader")}
-        aria-current={!writing ? "page" : undefined}
+        aria-current={!writing && !inAdmin ? "page" : undefined}
         className={cn(
           segment,
-          !writing
+          !writing && !inAdmin
             ? "bg-card text-peach-ink shadow-sm"
             : "text-muted-foreground hover:text-foreground",
         )}
@@ -72,6 +75,19 @@ export function ModeSwitch({ className }: { className?: string }) {
         {canWrite ? <PenLine className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
         {canWrite ? "Writing" : "Become a writer"}
       </Link>
+      {isAdmin && (
+        <Link
+          href="/admin"
+          aria-current={inAdmin ? "page" : undefined}
+          className={cn(
+            segment,
+            inAdmin ? "bg-butter text-butter-ink shadow-sm" : "text-butter-ink hover:bg-butter/60",
+          )}
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Admin
+        </Link>
+      )}
     </nav>
   )
 }

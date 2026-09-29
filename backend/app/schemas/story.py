@@ -61,6 +61,9 @@ class StoryRead(BaseModel):
     content_rating: str | None = None
     tags: list[str] = []
     status: StoryStatus
+    published_at: datetime | None = None
+    is_featured: bool = False
+    featured_rank: int | None = None
     scene_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -133,6 +136,8 @@ class PublicAuthor(BaseModel):
     author_name: str | None = None
     author_handle: str | None = None
     author_tone: str | None = None
+    # True for Narrive Originals (stories owned by the Narrive house account).
+    is_official: bool = False
 
 
 class PublicStoryRead(StoryRead, PublicAuthor):

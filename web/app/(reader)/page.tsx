@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, BookOpen, PenLine, Search, Sparkles, X } from "lucide-react"
+import { ArrowRight, BookOpen, PenLine, Search, Sparkles, Star, X } from "lucide-react"
 import { publicApi, type PublicStory } from "@/lib/api/public"
 import { useRatingLabel, useTaxonomy } from "@/hooks/use-taxonomy"
 import { PageContainer } from "@/components/page-container"
@@ -180,6 +180,15 @@ export default function DiscoverPage() {
   ]
   const filtering = !!query.trim() || activeFilters.length > 0
 
+  const featured = useMemo(
+    () =>
+      (stories ?? [])
+        .filter((s) => s.is_featured)
+        .sort((a, b) => (a.featured_rank ?? Infinity) - (b.featured_rank ?? Infinity))
+        .slice(0, 6),
+    [stories],
+  )
+
   function clearAll() {
     setQuery("")
     setGenres([])
@@ -229,6 +238,29 @@ export default function DiscoverPage() {
       {/* Stories */}
       <main id="stories" className="scroll-mt-20 pb-20">
         <PageContainer className="space-y-16">
+          {featured.length > 0 && !filtering && (
+            <section aria-labelledby="featured-heading">
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <div>
+                  <h2
+                    id="featured-heading"
+                    className="text-foreground flex items-center gap-2 text-2xl font-extrabold tracking-tight"
+                  >
+                    <Star className="text-butter-ink fill-butter h-6 w-6" aria-hidden />
+                    Featured
+                  </h2>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Hand-picked by the Narrive team
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map((story) => (
+                  <PublicStoryCard key={story.id} story={story} />
+                ))}
+              </div>
+            </section>
+          )}
           <div>
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="shrink-0">

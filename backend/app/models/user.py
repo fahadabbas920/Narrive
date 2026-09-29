@@ -29,5 +29,9 @@ class User(SQLModel, table=True):
     social_links: list[dict[str, str]] = Field(default=[], sa_column=Column(JSON))
     avatar_tone: str = Field(default="lavender", max_length=20)
     cover_tone: str = Field(default="lavender", max_length=20)
+    # "superadmin" or null. Only granted by `python -m app.scripts.make_admin`, never by the API.
+    admin_role: str | None = Field(default=None, max_length=20)
+    # The Narrive house account that owns Narrive Originals. Nobody can sign in as it.
+    is_system: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

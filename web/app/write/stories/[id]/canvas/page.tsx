@@ -4,12 +4,14 @@ import { use } from "react"
 import Link from "next/link"
 import { ArrowLeft, Clock, ExternalLink, Globe } from "lucide-react"
 import { StoryCanvas } from "@/components/app/editor/story-canvas"
+import { useStoryWorkspace } from "@/components/app/story-workspace"
 import { useStory } from "@/hooks/use-stories"
 import { cn } from "@/lib/utils"
 
 export default function StoryCanvasPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: story, isLoading } = useStory(id)
+  const ws = useStoryWorkspace()
 
   if (isLoading) {
     return (
@@ -26,8 +28,8 @@ export default function StoryCanvasPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="text-foreground font-bold">Story not found</p>
-        <Link href="/write/stories" className="text-primary text-sm font-semibold hover:underline">
-          Back to my stories
+        <Link href={ws.root} className="text-primary text-sm font-semibold hover:underline">
+          Back to {ws.backLabel.toLowerCase()}
         </Link>
       </div>
     )
@@ -39,7 +41,7 @@ export default function StoryCanvasPage({ params }: { params: Promise<{ id: stri
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-5">
         <Link
-          href={`/write/stories/${id}`}
+          href={ws.storyPath(id)}
           aria-label="Back to story overview"
           title="Story overview"
           className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors"

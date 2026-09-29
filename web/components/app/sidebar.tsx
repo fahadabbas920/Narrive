@@ -3,12 +3,35 @@
 import { useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Menu, PanelLeftClose, PanelLeftOpen, Plus, UserRound } from "lucide-react"
+import {
+  BookOpen,
+  FileUp,
+  LayoutDashboard,
+  Library,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  ScrollText,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react"
 import { BrandMark } from "@/components/brand"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useMe } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 
-const navItems = [
+interface NavItem {
+  label: string
+  icon: LucideIcon
+  href: string
+  matchPath: (p: string) => boolean
+}
+
+const writerNav: NavItem[] = [
   {
     label: "My Stories",
     icon: BookOpen,
@@ -29,6 +52,60 @@ const navItems = [
   },
 ]
 
+const adminNav: NavItem[] = [
+  { label: "Overview", icon: LayoutDashboard, href: "/admin", matchPath: (p) => p === "/admin" },
+  {
+    label: "Users",
+    icon: Users,
+    href: "/admin/users",
+    matchPath: (p) => p.startsWith("/admin/users"),
+  },
+  {
+    label: "Stories",
+    icon: Library,
+    href: "/admin/stories",
+    matchPath: (p) => p.startsWith("/admin/stories"),
+  },
+  {
+    label: "Originals",
+    icon: Sparkles,
+    href: "/admin/originals",
+    matchPath: (p) => p.startsWith("/admin/originals"),
+  },
+  {
+    label: "Import",
+    icon: FileUp,
+    href: "/admin/import",
+    matchPath: (p) => p.startsWith("/admin/import"),
+  },
+  {
+    label: "Audit log",
+    icon: ScrollText,
+    href: "/admin/audit",
+    matchPath: (p) => p.startsWith("/admin/audit"),
+  },
+]
+
+export type ShellVariant = "writer" | "admin"
+
+/** Writer mode is lavender; admin is butter, so it's always obvious you're acting as an admin. */
+const SHELLS = {
+  writer: {
+    home: "/write/stories",
+    subtitle: "Writing desk",
+    subtitleClass: "text-lavender-ink",
+    activeClass: "bg-lavender text-lavender-ink",
+    nav: writerNav,
+  },
+  admin: {
+    home: "/admin",
+    subtitle: "Admin console",
+    subtitleClass: "text-butter-ink",
+    activeClass: "bg-butter text-butter-ink",
+    nav: adminNav,
+  },
+} satisfies Record<ShellVariant, unknown>
+
 const STORAGE_KEY = "sidebarCollapsed"
 const CHANGE_EVENT = "sidebarCollapsedChange"
 
@@ -37,10 +114,17 @@ function subscribe(callback: () => void) {
   return () => window.removeEventListener(CHANGE_EVENT, callback)
 }
 
-function SidebarBrand({ collapsed = false }: { collapsed?: boolean }) {
+function SidebarBrand({
+  collapsed = false,
+  variant,
+}: {
+  collapsed?: boolean
+  variant: ShellVariant
+}) {
+  const shell = SHELLS[variant]
   return (
     <Link
-      href="/write/stories"
+      href={shell.home}
       className={cn(
         "border-border flex h-16 shrink-0 items-center gap-3 border-b",
         collapsed ? "justify-center px-3" : "px-4",
@@ -52,8 +136,13 @@ function SidebarBrand({ collapsed = false }: { collapsed?: boolean }) {
           <p className="text-foreground text-sm leading-tight font-bold whitespace-nowrap">
             Narrive
           </p>
-          <p className="text-lavender-ink font-mono text-[10px] tracking-widest whitespace-nowrap uppercase">
-            Writing desk
+          <p
+            className={cn(
+              "font-mono text-[10px] tracking-widest whitespace-nowrap uppercase",
+              shell.subtitleClass,
+            )}
+          >
+            {shell.subtitle}
           </p>
         </div>
       )}
@@ -64,14 +153,26 @@ function SidebarBrand({ collapsed = false }: { collapsed?: boolean }) {
 function SidebarNav({
   collapsed = false,
   onNavigate,
+  variant,
 }: {
   collapsed?: boolean
   onNavigate?: () => void
+  variant: ShellVariant
 }) {
   const pathname = usePathname()
+  const shell = SHELLS[variant]
+  const { data: me } = useMe()
+  // Only writer-admins see this shell; admins without a writer profile are sent to /admin.
+  const items: NavItem[] =
+    variant === "writer" && me?.admin_role
+      ? [
+          ...shell.nav,
+          { label: "Admin console", icon: ShieldCheck, href: "/admin", matchPath: () => false },
+        ]
+      : shell.nav
   return (
     <nav className={cn("flex-1 space-y-1 py-4", collapsed ? "px-2" : "px-3")}>
-      {navItems.map(({ label, icon: Icon, href, matchPath }) => {
+      {items.map(({ label, icon: Icon, href, matchPath }) => {
         const isActive = matchPath(pathname)
         return (
           <Link
@@ -84,7 +185,7 @@ function SidebarNav({
               "flex items-center rounded-xl text-sm transition-all",
               collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
               isActive
-                ? "bg-lavender text-lavender-ink font-semibold shadow-sm"
+                ? cn(shell.activeClass, "font-semibold shadow-sm")
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
@@ -98,7 +199,7 @@ function SidebarNav({
 }
 
 /** Desktop (lg+) sidebar — collapsible, sits beside the content. */
-export function Sidebar() {
+export function Sidebar({ variant = "writer" }: { variant?: ShellVariant }) {
   const collapsed = useSyncExternalStore(
     subscribe,
     () => localStorage.getItem(STORAGE_KEY) === "true",
@@ -117,8 +218,8 @@ export function Sidebar() {
         collapsed ? "w-14" : "w-60",
       )}
     >
-      <SidebarBrand collapsed={collapsed} />
-      <SidebarNav collapsed={collapsed} />
+      <SidebarBrand collapsed={collapsed} variant={variant} />
+      <SidebarNav collapsed={collapsed} variant={variant} />
 
       <div
         className={cn(
@@ -146,7 +247,7 @@ export function Sidebar() {
 }
 
 /** Below lg: a menu button that opens the sidebar as a drawer over the page. */
-export function MobileSidebar() {
+export function MobileSidebar({ variant = "writer" }: { variant?: ShellVariant }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -164,9 +265,9 @@ export function MobileSidebar() {
           side="left"
           className="bg-card w-[85%] max-w-xs gap-0 p-0 shadow-2xl sm:max-w-xs"
         >
-          <SheetTitle className="sr-only">Writing desk menu</SheetTitle>
-          <SidebarBrand />
-          <SidebarNav onNavigate={() => setOpen(false)} />
+          <SheetTitle className="sr-only">{SHELLS[variant].subtitle} menu</SheetTitle>
+          <SidebarBrand variant={variant} />
+          <SidebarNav variant={variant} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     </>
